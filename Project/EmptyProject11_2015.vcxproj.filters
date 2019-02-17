@@ -1,0 +1,66 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns:atg="http://atg.xbox.com" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{8e114980-c1a3-4ada-ad7c-83caadf5daeb}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe</Extensions>
+    </Filter>
+    <Filter Include="FBX">
+      <UniqueIdentifier>{182ac842-288b-429e-9ee4-6bd3e2761747}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Common">
+      <UniqueIdentifier>{1f09cb15-beef-4629-8114-d227310ece1c}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Ani">
+      <UniqueIdentifier>{381e834d-d730-47c0-99f7-8feb1a1d9573}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Shaders">
+      <UniqueIdentifier>{ba9d13ec-2fc7-4e22-b5e6-c36e7f794f39}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\DXUT\Optional\directx.ico">
+      <Filter>Resource Files</Filter>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <CLInclude Include="resource.h">
+      <Filter>Resource Files</Filter>
+    </CLInclude>
+    <ResourceCompile Include="EmptyProject11.rc">
+      <Filter>Resource Files</Filter>
+    </ResourceCompile>
+    <ClInclude Include="..\Common\GeometryUtility.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\AnimationUtility.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="..\Common\Common.h">
+      <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="FBXHelper.h">
+      <Filter>FBX</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="..\Common\AnimationUtility.cxx">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\Common.cxx">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="..\Common\GeometryUtility.cxx">
+      <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="DXUTAni.cpp" />
+    <ClCompile Include="FBXHelper.cpp">
+      <Filter>FBX</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="SimpleShader.fx">
+      <Filter>Shaders</Filter>
+    </FxCompile>
+  </ItemGroup>
+</Project>
