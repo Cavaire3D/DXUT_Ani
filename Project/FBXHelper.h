@@ -8,6 +8,7 @@
 #include "windows.h"
 #endif
 #include <DirectXMath.h>
+#include "NodeTransform.h"
 
 #define GET_LOCAL_MATRIX(scales, roations, trans, i) XMMatrixScaling((scales[i])->mData[0], (scales[i])->mData[1], (scales[i])->mData[2])* \
 	XMMatrixRotationRollPitchYaw((rotations[i])->mData[0], (rotations[i])->mData[1], (rotations[i])->mData[2])* \
@@ -71,47 +72,40 @@ public:
 		return true;
 	}	
 
-	static list<int> GetNodeSkeletonIndexList(FbxNode *fbxNode)
+	static NodeTransform GetLocalTransform(FbxNode* fbxNode)
+	{
+		FbxVector4 lTransform, lRotation, lScaling;
+		lTransform = fbxNode->LclTranslation.Get();
+		lRotation = fbxNode->LclRotation.Get();
+		lScaling = fbxNode->LclScaling.Get();
+		NodeTransform nodeT;
+		XMVectorSetX(nodeT.scales, lScaling.mData[0]);
+		XMVectorSetY(nodeT.scales, lScaling.mData[1]);
+		XMVectorSetZ(nodeT.scales, lScaling.mData[2]);
+
+		XMVectorSetX(nodeT.rotations, lRotation.mData[0]);
+		XMVectorSetY(nodeT.rotations, lRotation.mData[1]);
+		XMVectorSetZ(nodeT.rotations, lRotation.mData[2]);
+
+		XMVectorSetX(nodeT.translations, lTransform.mData[0]);
+		XMVectorSetY(nodeT.translations, lTransform.mData[1]);
+		XMVectorSetZ(nodeT.translations, lTransform.mData[2]);
+		return nodeT;
+	}
+
+	static list<NodeTransform> GetNodeSkeletonNodeTransList(FbxNode *fbxNode)
 	{
 		int index = 0;
-		list<int> indexList = new list<int>();
+		list<NodeTransform> indexList = new list<NodeTransform>();
 		for (int i= 0; i < fbxNode->GetChildCount(); I++)
 		{
 			FbxNode *childNode = fbxNode->GetChild(i);
 			if (childNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::EType::eSkeleton)
 			{
-				indexList.push_back(index);
+				indexList.push_back(GetLocalTransform(childNode));
 				index++;
 			}
 		}
 		return indexList;
-	}
-
-	static FbxAMatrix GetLocalTransform(FbxNode* fbxNode)
-	{
-		FbxVector4 lTransform, lRotationOffset, lRotationPivot, lPreRotation, lRotation, lPostRotation, lScalingOffset, lScalingPivot, lScaling;
-		FbxAMatrix lTransformM, lRotationOffsetM, lRotationPivotM, lPreRotationM, lRotationM, lPostRotationM, lScalingOffsetM, lScalingPivotM, lScalingM;
-		lTransform = fbxNode->LclTranslation.Get(); 
-		lRotationOffset = fbxNode->RotationOffset.Get();
-		lRotationPivot = fbxNode->RotationPivot.Get();
-		lPreRotation = fbxNode->PreRotation.Get();
-		lRotation = fbxNode->LclRotation.Get();
-		lPostRotation = fbxNode->PostRotation.Get();
-		lScalingOffset = fbxNode->ScalingOffset.Get();
-		lScalingPivot = fbxNode->ScalingPivot.Get();
-		lScaling = fbxNode->LclScaling.Get();
-		lTransformM.SetT(lTransform);
-		lRotationOffsetM.SetT(lRotationOffset);
-		lRotationPivotM.SetT(lRotationPivot);
-		lPreRotationM.SetR(lPreRotation);
-		lRotationM.SetR(lRotation);
-		lPostRotationM.SetR(lPostRotation);
-		lScalingOffsetM.SetT(lScalingOffset);
-		lScalingPivotM.SetT(lScalingOffset);
-		lScalingM.SetS(lScaling);
-		return lTransformM*lRotationM*lScalingM;
-		//return lScalingM*lRotationM*lTransformM;
-		/*return lTransformM*lRotationOffsetM*lRotationPivotM*lPreRotationM*lRotationM*lPostRotationM.Inverse()*lRotationPivotM.Inverse()*\
-			lScalingOffsetM*lScalingPivotM*lScalingM*lScalingPivotM.Inverse();*/
 	}
 };
