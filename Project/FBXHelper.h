@@ -9,15 +9,13 @@
 #endif
 #include <DirectXMath.h>
 #include "NodeTransform.h"
+#include <list>
 
-#define GET_LOCAL_MATRIX(scales, roations, trans, i) XMMatrixScaling((scales[i])->mData[0], (scales[i])->mData[1], (scales[i])->mData[2])* \
-	XMMatrixRotationRollPitchYaw((rotations[i])->mData[0], (rotations[i])->mData[1], (rotations[i])->mData[2])* \
-	XMMatrixTranslation((trans[i])->mData[0], (trans[i])->mData[1], (trans[i])->mData[2]); \
 
 #define FormatLog(formatStr, args) \
-		static char msg[100]; \
+		{char msg[100]; \
 		snprintf(msg, 100, (formatStr), (args)); \
-		FBXHelper::Log(msg); \
+		FBXHelper::Log(msg);} \
 
 class FBXHelper 
 {
@@ -42,10 +40,10 @@ public:
 
 	static void Log(const char * logMsg)
 	{
-		static wchar_t wMsg[256];
-		static char copyMsg[256];
+		wchar_t wMsg[256];
+		char copyMsg[256];
 		strcpy(copyMsg, logMsg);
-		strcat(copyMsg, "\n");
+		strcat(copyMsg, "\n\0");
 		mbstowcs(wMsg, copyMsg, strlen(copyMsg) + 1);
 		OutputDebugString(wMsg);
 	}
@@ -72,40 +70,44 @@ public:
 		return true;
 	}	
 
+	static DirectX::XMMATRIX ToXm(const FbxAMatrix& pSrc)
+	{
+		return DirectX::XMMatrixSet(
+			static_cast<FLOAT>(pSrc.Get(0, 0)), static_cast<FLOAT>(pSrc.Get(0, 1)), static_cast<FLOAT>(pSrc.Get(0, 2)), static_cast<FLOAT>(pSrc.Get(0, 3)),
+			static_cast<FLOAT>(pSrc.Get(1, 0)), static_cast<FLOAT>(pSrc.Get(1, 1)), static_cast<FLOAT>(pSrc.Get(1, 2)), static_cast<FLOAT>(pSrc.Get(1, 3)),
+			static_cast<FLOAT>(pSrc.Get(2, 0)), static_cast<FLOAT>(pSrc.Get(2, 1)), static_cast<FLOAT>(pSrc.Get(2, 2)), static_cast<FLOAT>(pSrc.Get(2, 3)),
+			static_cast<FLOAT>(pSrc.Get(3, 0)), static_cast<FLOAT>(pSrc.Get(3, 1)), static_cast<FLOAT>(pSrc.Get(3, 2)), static_cast<FLOAT>(pSrc.Get(3, 3)));
+	}
+
 	static NodeTransform GetLocalTransform(FbxNode* fbxNode)
 	{
-		FbxVector4 lTransform, lRotation, lScaling;
-		lTransform = fbxNode->LclTranslation.Get();
-		lRotation = fbxNode->LclRotation.Get();
-		lScaling = fbxNode->LclScaling.Get();
+		FbxAMatrix fbxM = fbxNode->EvaluateLocalTransform();
+		DirectX::XMMATRIX lM = ToXm(fbxM);
 		NodeTransform nodeT;
-		XMVectorSetX(nodeT.scales, lScaling.mData[0]);
-		XMVectorSetY(nodeT.scales, lScaling.mData[1]);
-		XMVectorSetZ(nodeT.scales, lScaling.mData[2]);
-
-		XMVectorSetX(nodeT.rotations, lRotation.mData[0]);
-		XMVectorSetY(nodeT.rotations, lRotation.mData[1]);
-		XMVectorSetZ(nodeT.rotations, lRotation.mData[2]);
-
-		XMVectorSetX(nodeT.translations, lTransform.mData[0]);
-		XMVectorSetY(nodeT.translations, lTransform.mData[1]);
-		XMVectorSetZ(nodeT.translations, lTransform.mData[2]);
+		XMMatrixDecompose(&(nodeT.scales), &(nodeT.quaternion), &(nodeT.translation), lM);
 		return nodeT;
 	}
 
-	static list<NodeTransform> GetNodeSkeletonNodeTransList(FbxNode *fbxNode)
+	static void GetNodeSkeletonNodeTransList(FbxNode *fbxNode, std::list<NodeContent> *nodeContentList, int parentIdx = -1)
 	{
-		int index = 0;
-		list<NodeTransform> indexList = new list<NodeTransform>();
-		for (int i= 0; i < fbxNode->GetChildCount(); I++)
+		int idx = -1;
+		FbxNodeAttribute *nodeAttr = fbxNode->GetNodeAttribute();
+		if (nodeAttr == nullptr ||
+			nodeAttr->GetAttributeType() == FbxNodeAttribute::eSkeleton ||
+			nodeAttr->GetAttributeType() == FbxNodeAttribute::eNull)
+		{
+			NodeContent content;
+			content.parentIdx = parentIdx;
+			content.index = nodeContentList->size();
+			content.transform = GetLocalTransform(fbxNode);
+			nodeContentList->push_back(content);
+			idx = content.index;
+		}
+		
+		for (int i= 0; i < fbxNode->GetChildCount(); i++)
 		{
 			FbxNode *childNode = fbxNode->GetChild(i);
-			if (childNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::EType::eSkeleton)
-			{
-				indexList.push_back(GetLocalTransform(childNode));
-				index++;
-			}
+			GetNodeSkeletonNodeTransList(childNode, nodeContentList, idx);
 		}
-		return indexList;
 	}
 };

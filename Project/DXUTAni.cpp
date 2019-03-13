@@ -5,21 +5,13 @@
 #include <d3d9types.h>
 #include "fbxsdk/core/math/fbxaffinematrix.h"
 #include <list>
+#include <vector>
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
 using namespace DirectX;
 
-#define RAND_IN_RANGE(a,b ) (rand() % ((b)-(a)+1))+ (a)
-
-#define USE_GLOBAL_TRANS 0
-
-//记得把内存释放掉
-FbxDouble3** trans;
-FbxDouble3** rotations;
-FbxDouble3** scales;
 int nodeCnts = 0;
-int* parents;
 
 XMMATRIX                    g_World;
 XMMATRIX                    g_View;
@@ -32,7 +24,7 @@ int g_lineCnt = 0;
 ID3D11SamplerState*         g_pSamplerLinear = nullptr;
 ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
-FbxAMatrix*          matrixList = nullptr;
+std::list<NodeContent> *nodeContentList = nullptr;
 struct SimpleVertex
 {
 	XMFLOAT3 Pos;
@@ -66,45 +58,10 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
     return true;
 }
 
-void ReadNode(FbxNode *parentNode, int parentIdx, int &totalCnt)
+void ReadNode(FbxNode *parentNode)
 {
-	parents[totalCnt] = parentIdx;
-#if USE_GLOBAL_TRANS
-	FbxAMatrix pm = parentNode->EvaluateGlobalTransform();
-	scales[totalCnt] = new FbxDouble3(pm.GetS().mData[0], pm.GetS().mData[1], pm.GetS().mData[2]);
-	rotations[totalCnt] = new FbxDouble3(pm.GetR().mData[0], pm.GetR().mData[1], pm.GetR().mData[2]);
-	trans[totalCnt] = new FbxDouble3(pm.GetT().mData[0], pm.GetT().mData[1], pm.GetT().mData[2]);
-#else
-	FbxAMatrix parentM;
-	parentM.SetIdentity();
-	if (parentIdx >= 0)
-	{
-		parentM = matrixList[parentIdx];
-	}
-
-	FbxAMatrix localMatrix = FBXHelper::GetLocalTransform(parentNode);
-	matrixList[totalCnt] = parentM*localMatrix;
-	FbxVector4 globalPos = matrixList[totalCnt].GetT();
-	trans[totalCnt] = new FbxDouble3(globalPos.mData[0], globalPos.mData[1], globalPos.mData[2]);
-	
-#endif // USE_GLOBAL_TRANS
-	
-	totalCnt += 1;
-	int index = totalCnt - 1;
-	if (parentNode->GetNodeAttribute()->GetAttributeType() == FbxNodeAttribute::EType::eSkeleton)
-	{
-		FBXHelper::Log("isSkeleton");
-	}
-	else
-	{
-		FormatLog("Not Skeleton, name:%s", parentNode->GetName());
-	}
-	for (int i = 0; i < parentNode->GetChildCount(); i++)
-	{
-		FbxNode* childNode = parentNode->GetChild(i);
-		g_lineCnt += 1;
-		ReadNode(childNode, index, totalCnt);
-	}
+	nodeContentList = new std::list<NodeContent>();
+	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, nodeContentList);
 }
 
 void ReadFbx()
@@ -119,16 +76,7 @@ void ReadFbx()
 		MessageBox(0, L"LoadFbxError", L"Error", MB_ICONEXCLAMATION);
 		exit(-1);
 	}
-	FbxNode* firstNode = lRootNode->GetChild(0);
-	int allNodeCnt = firstNode->GetChildCount(true) + 1; //把父节点也算上
-	trans = new FbxDouble3*[allNodeCnt];
-	rotations = new FbxDouble3 *[allNodeCnt];
-	scales = new FbxDouble3 *[allNodeCnt];
-	parents = new int[allNodeCnt];
-	matrixList = new FbxAMatrix[allNodeCnt];
-	int totalCnt = 0;
-	ReadNode(firstNode, -1, totalCnt);
-	nodeCnts = totalCnt;
+	ReadNode(lRootNode);
 }
 
 //--------------------------------------------------------------------------------------
@@ -180,15 +128,7 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 		return hr;
 	}
 
-	g_pVertexs = new SimpleVertex[g_lineCnt * 2];
 	ReCalculateVertexs();
-	//srand((unsigned)time(NULL));
-	//for (int i = 0; i < g_lineCnt * 2; i++)
-	//{
-	//	g_pVertexs[i].Pos.x = RAND_IN_RANGE(-10, 10);
-	//	g_pVertexs[i].Pos.y = RAND_IN_RANGE(-10, 10);
-	//	g_pVertexs[i].Pos.z = RAND_IN_RANGE(-10, 10);
-	//}
 	D3D11_BUFFER_DESC bd = {};
 	bd.Usage = D3D11_USAGE_DEFAULT;
 	bd.ByteWidth = sizeof(SimpleVertex) * g_lineCnt*2;
@@ -243,52 +183,42 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 //重新计算顶点位置
 void ReCalculateVertexs()
 {
-	int parentIdx = -1;
-	char strA[50];
-	char strB[50];
-	char strC[100];
-#if USE_GLOBAL_TRANS
-	XMMATRIX * localMatrix = new XMMATRIX[nodeCnts];
-	localMatrix[0] = GET_LOCAL_MATRIX(scales, rotations, trans, 0);
-#endif
-	for (int i = 1; i<nodeCnts;i++)
+	std::vector<SimpleVertex> vertexList;
+	std::vector<XMMATRIX> matrixList;
+	for (auto iter = nodeContentList->begin(); iter != nodeContentList->end(); iter++)
 	{
-		parentIdx = parents[i];
-		
-#if USE_GLOBAL_TRANS
-		XMMATRIX* pm = &(localMatrix[parentIdx]);
-		XMMATRIX m = GET_LOCAL_MATRIX(scales, rotations, trans, i);
-		XMMATRIX local = (*pm)*m;
-		localMatrix[i] = local;
-		g_pVertexs[2 * (i - 1)].Pos.x = trans[i]->mData[0];
-		g_pVertexs[2 * (i - 1)].Pos.y = trans[i]->mData[1];
-		g_pVertexs[2 * (i - 1)].Pos.z = trans[i]->mData[2];
-		snprintf(strA, 50, "pos:%d", 2 * (i - 1));
-		snprintf(strB, 50, "x:%.1f,y:%.1f,z:%.1f", g_pVertexs[2 * (i - 1)].Pos.x, g_pVertexs[2 * (i - 1)].Pos.y, g_pVertexs[2 * (i - 1)].Pos.z);
-		strcpy(strC, strA);
-		strcat(strC, strB);
-		FBXHelper::Log(strC);
-		g_pVertexs[2 * (i - 1) + 1].Pos.x = trans[parentIdx]->mData[0];
-		g_pVertexs[2 * (i - 1) + 1].Pos.y = trans[parentIdx]->mData[1];
-		g_pVertexs[2 * (i - 1) + 1].Pos.z = trans[parentIdx]->mData[2];
-		//g_pVertexs[2 * (i - 1) + 1].Pos.x = XMVectorGetX(pm->r[3]);
-		//g_pVertexs[2 * (i - 1) + 1].Pos.y = XMVectorGetY(pm->r[3]);
-		//g_pVertexs[2 * (i - 1) + 1].Pos.z = XMVectorGetZ(pm->r[3]);
-#else
-		g_pVertexs[2 * (i - 1)].Pos.x = trans[i]->mData[0];
-		g_pVertexs[2 * (i - 1)].Pos.y = trans[i]->mData[1];
-		g_pVertexs[2 * (i - 1)].Pos.z = trans[i]->mData[2];
-		g_pVertexs[2 * (i - 1) + 1].Pos.x = trans[parentIdx]->mData[0];
-		g_pVertexs[2 * (i - 1) + 1].Pos.y = trans[parentIdx]->mData[1];
-		g_pVertexs[2 * (i - 1) + 1].Pos.z = trans[parentIdx]->mData[2];
-#endif // USE_GLOBAL_TRANS
-		
-		
-		
+		XMMATRIX global;
+		if (iter->parentIdx < 0)
+		{
+			matrixList.push_back(iter->transform.ToMatrix());
+		}
+		else
+		{
+			XMMATRIX pM = matrixList[iter->parentIdx];
+			XMMATRIX lM = iter->transform.ToMatrix();
+			XMMATRIX gM = lM*pM;
+			matrixList.push_back(gM);
+			XMVECTOR outS, outQ, outT;
+			XMMatrixDecompose(&outS, &outQ, &outT, pM);
+			SimpleVertex pVertext;
+			pVertext.Pos.x = XMVectorGetX(outT);
+			pVertext.Pos.y = XMVectorGetY(outT);
+			pVertext.Pos.z = XMVectorGetZ(outT);
+			SimpleVertex cVertext;
+			XMMatrixDecompose(&outS, &outQ, &outT, gM);
+			cVertext.Pos.x = XMVectorGetX(outT);
+			cVertext.Pos.y = XMVectorGetY(outT);
+			cVertext.Pos.z = XMVectorGetZ(outT);
+			vertexList.push_back(pVertext);
+			vertexList.push_back(cVertext);
+		}
 	}
-#if USE_GLOBAL_TRANS
-	delete localMatrix;
-#endif
+	g_lineCnt = vertexList.size() / 2;
+	g_pVertexs = new SimpleVertex[vertexList.size()];
+	for (int i= 0; i< vertexList.size(); i++)
+	{
+		g_pVertexs[i].Pos = vertexList[i].Pos;
+	}
 }
 
 //--------------------------------------------------------------------------------------

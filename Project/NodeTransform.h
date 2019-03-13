@@ -4,9 +4,16 @@
 
 struct NodeTransform
 {
-	XMVECTOR scales;
-	XMVECTOR rotations;
-	XMVECTOR translations;
+	DirectX::XMVECTOR scales;
+	DirectX::XMVECTOR quaternion;
+	DirectX::XMVECTOR translation;
+	DirectX::XMMATRIX ToMatrix()
+	{
+		DirectX::XMMATRIX sM = DirectX::XMMatrixScalingFromVector(scales);
+		DirectX::XMMATRIX rM = DirectX::XMMatrixRotationQuaternion(quaternion);
+		DirectX::XMMATRIX tM = DirectX::XMMatrixTranslationFromVector(translation);
+		return sM*rM*tM;
+	}
 };
 
 struct NodeContent
