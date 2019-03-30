@@ -17,6 +17,9 @@
     <Filter Include="Shaders">
       <UniqueIdentifier>{ba9d13ec-2fc7-4e22-b5e6-c36e7f794f39}</UniqueIdentifier>
     </Filter>
+    <Filter Include="FBX\Animation">
+      <UniqueIdentifier>{55939d6c-f8d7-4bb3-81d6-3fbff6f6f622}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\DXUT\Optional\directx.ico">
@@ -41,6 +44,9 @@
     </ClInclude>
     <ClInclude Include="FBXHelper.h">
       <Filter>FBX</Filter>
+    </ClInclude>
+    <ClInclude Include="FBXAnimationHelper.h">
+      <Filter>FBX\Animation</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

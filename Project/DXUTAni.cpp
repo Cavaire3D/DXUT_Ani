@@ -1,5 +1,6 @@
 #include "DXUT.h"
 #include "FBXHelper.h"
+#include "GetNodeStacksData.h"
 #include "SDKmisc.h"
 #include <stdlib.h>
 #include <d3d9types.h>
@@ -58,10 +59,12 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
     return true;
 }
 
+
 void ReadNode(FbxNode *parentNode)
 {
 	nodeContentList = new std::list<NodeContent>();
 	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, nodeContentList);
+	FBXAnimationHelper::GetNodeTransform(parentNode);
 }
 
 void ReadFbx()

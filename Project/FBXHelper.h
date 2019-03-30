@@ -70,6 +70,10 @@ public:
 		return true;
 	}	
 
+	/*
+	* 把FbxAMatrix列矩阵转为行矩阵
+	* FbxAMatrix::get(row, column),所以此方法可行
+	*/
 	static DirectX::XMMATRIX ToXm(const FbxAMatrix& pSrc)
 	{
 		return DirectX::XMMatrixSet(
@@ -99,6 +103,7 @@ public:
 			NodeContent content;
 			content.parentIdx = parentIdx;
 			content.index = nodeContentList->size();
+			content.pNode = fbxNode;
 			content.transform = GetLocalTransform(fbxNode);
 			nodeContentList->push_back(content);
 			idx = content.index;

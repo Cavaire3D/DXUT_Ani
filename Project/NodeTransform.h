@@ -1,6 +1,7 @@
 #pragma once
 
 #include <DirectXMath.h>
+#include "fbxsdk.h"
 
 struct NodeTransform
 {
@@ -21,4 +22,5 @@ struct NodeContent
 	int parentIdx;
 	int index;
 	NodeTransform transform;
+	FbxNode* pNode;
 };
