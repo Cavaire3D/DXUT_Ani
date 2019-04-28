@@ -1,6 +1,6 @@
 #include "DXUT.h"
 #include "FBXHelper.h"
-#include "GetNodeStacksData.h"
+#include "FBXAnimationHelper.h"
 #include "SDKmisc.h"
 #include <stdlib.h>
 #include <d3d9types.h>
@@ -26,12 +26,13 @@ ID3D11SamplerState*         g_pSamplerLinear = nullptr;
 ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
 std::list<NodeContent> *nodeContentList = nullptr;
+NodeAnimationStacksData g_stackData;
 struct SimpleVertex
 {
 	XMFLOAT3 Pos;
 };
 SimpleVertex* g_pVertexs;
-
+std::vector<XMMATRIX> gOrginalTransform;
 
 struct CBChangesEveryFrame
 {
@@ -64,7 +65,7 @@ void ReadNode(FbxNode *parentNode)
 {
 	nodeContentList = new std::list<NodeContent>();
 	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, nodeContentList);
-	FBXAnimationHelper::GetNodeTransform(parentNode);
+	FBXAnimationHelper::GetNodeStacksData(nodeContentList, g_stackData);
 }
 
 void ReadFbx()
@@ -187,20 +188,19 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 void ReCalculateVertexs()
 {
 	std::vector<SimpleVertex> vertexList;
-	std::vector<XMMATRIX> matrixList;
 	for (auto iter = nodeContentList->begin(); iter != nodeContentList->end(); iter++)
 	{
 		XMMATRIX global;
 		if (iter->parentIdx < 0)
 		{
-			matrixList.push_back(iter->transform.ToMatrix());
+			gOrginalTransform.push_back(iter->transform.ToMatrix());
 		}
 		else
 		{
-			XMMATRIX pM = matrixList[iter->parentIdx];
+			XMMATRIX pM = gOrginalTransform[iter->parentIdx];
 			XMMATRIX lM = iter->transform.ToMatrix();
 			XMMATRIX gM = lM*pM;
-			matrixList.push_back(gM);
+			gOrginalTransform.push_back(gM);
 			XMVECTOR outS, outQ, outT;
 			XMMatrixDecompose(&outS, &outQ, &outT, pM);
 			SimpleVertex pVertext;
