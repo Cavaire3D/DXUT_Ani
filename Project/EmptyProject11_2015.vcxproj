@@ -423,6 +423,7 @@
     <ClInclude Include="..\Common\AnimationUtility.h" />
     <ClInclude Include="..\Common\Common.h" />
     <ClInclude Include="..\Common\GeometryUtility.h" />
+    <ClInclude Include="DXUTAni.h" />
     <ClInclude Include="FBXAnimationHelper.h" />
     <ClInclude Include="FBXHelper.h" />
     <CLInclude Include="resource.h" />

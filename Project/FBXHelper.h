@@ -48,39 +48,6 @@ public:
 		OutputDebugString(wMsg);
 	}
 
-	static DirectX::XMVECTOR QuaternionToEuler(DirectX::XMVECTOR &quaternion)
-	{
-		DirectX::XMVECTOR euler;
-		float x = DirectX::XMVectorGetX(quaternion);
-		float y = DirectX::XMVectorGetY(quaternion);
-		float z = DirectX::XMVectorGetZ(quaternion);
-		float w = DirectX::XMVectorGetW(quaternion);
-		double sinr_cosp = +2.0 * (w * x + y * z);
-		double cosr_cosp = +1.0 - 2.0 * (x* x + y * y);
-		double roll = std::atan2(sinr_cosp, cosr_cosp);
-
-		// pitch (y-axis rotation)
-		double sinp = +2.0 * (w * y - z * x);
-		double pitch;
-		if (std::fabs(sinp) >= 1)
-		{
-			pitch = std::copysign(3.1415926 / 2, sinp); // use 90 degrees if out of range
-		}
-		else
-		{
-			pitch = std::asin(sinp);
-		}
-
-		// yaw (z-axis rotation)
-		double siny_cosp = +2.0 * (w * z + x * y);
-		double cosy_cosp = +1.0 - 2.0 * (y * y + z * z);
-		double yaw = std::atan2(siny_cosp, cosy_cosp);
-		DirectX::XMVectorSetX(euler, yaw);
-		DirectX::XMVectorSetY(euler, pitch);
-		DirectX::XMVectorSetZ(euler, roll);
-		return euler;
-	}
-
 	static bool LoadFbx(const char * fileName)
 	{
 		FbxIOSettings *ios = FbxIOSettings::Create(fbxManger, IOSROOT);
@@ -125,7 +92,7 @@ public:
 		return nodeT;
 	}
 
-	static void GetNodeSkeletonNodeTransList(FbxNode *fbxNode, std::list<NodeContent> *nodeContentList, int parentIdx = -1)
+	static void GetNodeSkeletonNodeTransList(FbxNode *fbxNode, std::vector<NodeContent> *g_pNodeContentList, int parentIdx = -1)
 	{
 		int idx = -1;
 		FbxNodeAttribute *nodeAttr = fbxNode->GetNodeAttribute();
@@ -135,17 +102,17 @@ public:
 		{
 			NodeContent content;
 			content.parentIdx = parentIdx;
-			content.index = nodeContentList->size();
+			content.index = g_pNodeContentList->size();
 			content.pNode = fbxNode;
 			content.transform = GetLocalTransform(fbxNode);
-			nodeContentList->push_back(content);
+			g_pNodeContentList->push_back(content);
 			idx = content.index;
 		}
 		
 		for (int i= 0; i < fbxNode->GetChildCount(); i++)
 		{
 			FbxNode *childNode = fbxNode->GetChild(i);
-			GetNodeSkeletonNodeTransList(childNode, nodeContentList, idx);
+			GetNodeSkeletonNodeTransList(childNode, g_pNodeContentList, idx);
 		}
 	}
 };

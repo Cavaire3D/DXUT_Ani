@@ -48,6 +48,7 @@
     <ClInclude Include="FBXAnimationHelper.h">
       <Filter>FBX\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="DXUTAni.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\AnimationUtility.cxx">

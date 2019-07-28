@@ -5,8 +5,10 @@
 #include <stdlib.h>
 #include <d3d9types.h>
 #include "fbxsdk/core/math/fbxaffinematrix.h"
+#include <time.h>
 #include <list>
 #include <vector>
+#include "DXUTAni.h"
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
@@ -25,20 +27,23 @@ int g_lineCnt = 0;
 ID3D11SamplerState*         g_pSamplerLinear = nullptr;
 ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
-std::list<NodeContent> *nodeContentList = nullptr;
+std::vector<NodeContent> *g_pNodeContentList = nullptr;
 NodeAnimationStacksData g_stackData;
-struct SimpleVertex
-{
-	XMFLOAT3 Pos;
-};
 SimpleVertex* g_pVertexs;
-std::vector<XMMATRIX> gOrginalTransform;
+std::vector<SimpleVertex> g_realTimeVertextList;
+std::vector<XMMATRIX> g_OrginalTransform;
 
 struct CBChangesEveryFrame
 {
 	XMFLOAT4X4 mWorldViewProj;
 	XMFLOAT4X4 mWorld;
 };
+
+float GetRunningTime()
+{
+	clock_t time = clock();
+	return(float)time / CLOCKS_PER_SEC;
+}
 
 void ReCalculateVertexs();
 
@@ -63,9 +68,9 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
 
 void ReadNode(FbxNode *parentNode)
 {
-	nodeContentList = new std::list<NodeContent>();
-	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, nodeContentList);
-	FBXAnimationHelper::GetNodeStacksData(nodeContentList, g_stackData);
+	g_pNodeContentList = new std::vector<NodeContent>();
+	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, g_pNodeContentList);
+	FBXAnimationHelper::GetNodeStacksData(g_pNodeContentList, g_stackData);
 }
 
 void ReadFbx()
@@ -81,6 +86,38 @@ void ReadFbx()
 		exit(-1);
 	}
 	ReadNode(lRootNode);
+}
+
+void CreateVertexBuffer(SimpleVertex* pVertexs, ID3D11Device *pd3dDevice)
+{
+	D3D11_BUFFER_DESC bd = {};
+	bd.Usage = D3D11_USAGE_DEFAULT;
+	bd.ByteWidth = sizeof(SimpleVertex) * g_lineCnt * 2;
+	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
+	bd.CPUAccessFlags = 0;
+
+	D3D11_SUBRESOURCE_DATA initData = {};
+	initData.pSysMem = pVertexs;
+	if (pd3dDevice->CreateBuffer(&bd, &initData, &g_pVertexBuffer))
+	{
+		FBXHelper::Log("jbx: CreateBufferError");
+		return;
+	}
+	
+	UINT stride = sizeof(SimpleVertex);
+	UINT offset = 0;
+	ID3D11DeviceContext* pd3dImmediateContext = DXUTGetD3D11DeviceContext();
+	pd3dImmediateContext->IASetVertexBuffers(0, 1, &g_pVertexBuffer, &stride, &offset);
+	pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
+
+	bd.Usage = D3D11_USAGE_DYNAMIC;
+	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
+	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+	bd.ByteWidth = sizeof(CBChangesEveryFrame);
+	if (pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangesEveryFrame))
+	{
+		FBXHelper::Log("jbx: Create ChangesBufferError");
+	}
 }
 
 //--------------------------------------------------------------------------------------
@@ -133,25 +170,7 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 	}
 
 	ReCalculateVertexs();
-	D3D11_BUFFER_DESC bd = {};
-	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * g_lineCnt*2;
-	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
-	bd.CPUAccessFlags = 0;
-
-	D3D11_SUBRESOURCE_DATA initData = {};
-	initData.pSysMem = g_pVertexs;
-	V_RETURN(pd3dDevice->CreateBuffer(&bd, &initData, &g_pVertexBuffer));
-	UINT stride = sizeof(SimpleVertex);
-	UINT offset = 0;
-	pd3dImmediateContext->IASetVertexBuffers(0, 1, &g_pVertexBuffer, &stride, &offset);
-	pd3dImmediateContext->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_LINELIST);
-
-	bd.Usage = D3D11_USAGE_DYNAMIC;
-	bd.BindFlags = D3D11_BIND_CONSTANT_BUFFER;
-	bd.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-	bd.ByteWidth = sizeof(CBChangesEveryFrame);
-	V_RETURN(pd3dDevice->CreateBuffer(&bd, nullptr, &g_pCBChangesEveryFrame));
+	CreateVertexBuffer(g_pVertexs, pd3dDevice);
 
 	g_World = XMMatrixIdentity();
 
@@ -181,26 +200,34 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 //--------------------------------------------------------------------------------------
 void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext )
 {
-	g_World = XMMatrixRotationY(60.0f * XMConvertToRadians((float)fTime));
+	//g_World = XMMatrixRotationY(60.0f * XMConvertToRadians((float)fTime));
+	//g_World = XMMatrixRotationRollPitchYaw(30, 30, 30);
+	FBXAnimationHelper::EvalAllNodePos(g_OrginalTransform,
+																*g_pNodeContentList,
+																g_stackData,
+																std::string("run"),
+																std::string("Layer0"),
+																GetRunningTime(),
+																g_realTimeVertextList); //StackName :run ,LayerName:Layer0
 }
 
 //重新计算顶点位置
 void ReCalculateVertexs()
 {
 	std::vector<SimpleVertex> vertexList;
-	for (auto iter = nodeContentList->begin(); iter != nodeContentList->end(); iter++)
+	for (auto iter = g_pNodeContentList->begin(); iter != g_pNodeContentList->end(); iter++)
 	{
 		XMMATRIX global;
 		if (iter->parentIdx < 0)
 		{
-			gOrginalTransform.push_back(iter->transform.ToMatrix());
+			g_OrginalTransform.push_back(iter->transform.ToMatrix());
 		}
 		else
 		{
-			XMMATRIX pM = gOrginalTransform[iter->parentIdx];
+			XMMATRIX pM = g_OrginalTransform[iter->parentIdx];
 			XMMATRIX lM = iter->transform.ToMatrix();
 			XMMATRIX gM = lM*pM;
-			gOrginalTransform.push_back(gM);
+			g_OrginalTransform.push_back(gM);
 			XMVECTOR outS, outQ, outT;
 			XMMatrixDecompose(&outS, &outQ, &outT, pM);
 			SimpleVertex pVertext;
@@ -230,6 +257,8 @@ void ReCalculateVertexs()
 void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext,
                                   double fTime, float fElapsedTime, void* pUserContext )
 {
+	CreateVertexBuffer(g_realTimeVertextList.data(), pd3dDevice);
+
     // Clear render target and the depth stencil 
     auto pRTV = DXUTGetD3D11RenderTargetView();
     pd3dImmediateContext->ClearRenderTargetView( pRTV, Colors::MidnightBlue );
