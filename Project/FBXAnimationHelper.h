@@ -103,8 +103,10 @@ typedef std::vector<NodeAnimationTransforms> AllNodesData;
 * 存储一个AnimationStack下多个Layer的信息
 * key LayerName的Hash值
 * value AllNodesData
-*/
+导出的时候应该用不到
 typedef std::map<int, AllNodesData> NodeAnimationLayersData;
+*/
+
 
 
 /*
@@ -112,49 +114,20 @@ typedef std::map<int, AllNodesData> NodeAnimationLayersData;
 * StakcData->LayerData->AllNodeTrans
 * key stackName的Hash值
 * value NodeAnimationLayersData 
+
 */
-typedef std::map<int, NodeAnimationLayersData> NodeAnimationStacksData;
+typedef std::map<int, AllNodesData> NodeAnimationStacksData;
 
 class FBXAnimationHelper
 {
 public:
 
-	static CurveData GetCurveData(FbxAnimCurve* pCurve)
-	{
-		CurveData curveData;
-		if (pCurve)
-		{
-			for (int keyIndex = 0; keyIndex < pCurve->KeyGetCount(); keyIndex++)
-			{
-				CurveNode node;
-				node.first = pCurve->KeyGetTime(keyIndex).GetSecondDouble();
-				node.second = pCurve->KeyGetValue(keyIndex);
-				curveData.push_back(node);
-			}
-		}
-		else
-		{
-
-		}
-		return curveData;
-	}
-
-	static NodeAnimationTransforms GetNodeAnimationTransform(FbxAnimLayer *pLayer, FbxNode *pNode)
+	static NodeAnimationTransforms GetNodeAnimationTransform(FbxAnimStack *pStack, FbxNode *pNode)
 	{
 		NodeAnimationTransforms nodeAnimatinforms;
-		FbxAnimCurve* pCurveSX, *pCurveSY, *pCurveSZ, *pCurveRX, *pCurveRY, *pCurveRZ, *pCurveTX, *pCurveTY, *pCurveTZ ;
-		pCurveTX = pNode->LclTranslation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		pCurveTY = pNode->LclTranslation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		pCurveTZ = pNode->LclTranslation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-		pCurveRX = pNode->LclRotation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		pCurveRY = pNode->LclRotation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		pCurveRZ = pNode->LclRotation.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
-		pCurveSX = pNode->LclScaling.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_X);
-		pCurveSY = pNode->LclScaling.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Y);
-		pCurveSZ = pNode->LclScaling.GetCurve(pLayer, FBXSDK_CURVENODE_COMPONENT_Z);
-
+		FbxTimeSpan timeSpan = pStack->GetLocalTimeSpan();
+		FbxTimeSpan start = timeSpan.GetStart();
+		FbxTimeSpan end = timeSpan.GetStop();
 		nodeAnimatinforms.curveTX = GetCurveData(pCurveTX);
 		nodeAnimatinforms.curveTY = GetCurveData(pCurveTY);
 		nodeAnimatinforms.curveTZ = GetCurveData(pCurveTZ);
@@ -184,12 +157,12 @@ public:
 		return nodeAnimatinforms;
 	}
 
-	static AllNodesData GetAllNodesData(FbxAnimLayer *pLayer, std::vector<NodeContent> *pNodeContentList)
+	static AllNodesData GetAllNodesData(FbxAnimStack *pStack, std::vector<NodeContent> *pNodeContentList)
 	{
 		AllNodesData allNodesData;
 		for (auto it = pNodeContentList->begin(); it != pNodeContentList->end(); it++)
 		{
-			NodeAnimationTransforms animTrans = GetNodeAnimationTransform(pLayer, it->pNode);
+			NodeAnimationTransforms animTrans = GetNodeAnimationTransform(pStack, it->pNode);
 			allNodesData.push_back(animTrans);
 		}
 		return allNodesData;
@@ -197,6 +170,8 @@ public:
 
 	static NodeAnimationLayersData GetNodeLayersData(FbxAnimStack *pStack,std::vector<NodeContent> *pNodeContentList)
 	{
+		pStack->GetLocalTimeSpan();
+
 		NodeAnimationLayersData nodeLayersData;
 		int layerCnt = pStack->GetMemberCount<FbxAnimLayer>();
 		for (int i = 0; i < layerCnt; i++)
@@ -216,13 +191,14 @@ public:
 		for (int i = 0; i<pScene->GetSrcObjectCount<FbxAnimStack>(); i++)
 		{
 			FbxAnimStack* pStack = pScene->GetSrcObject<FbxAnimStack>(i);
+			pScene->SetCurrentAnimationStack(pStack);
 			FbxString stackName = "Animation Stack Name:";
 			stackName += pStack->GetName();
 			char* cName = stackName.Buffer();
 			FormatLog("jbx:stackName %s;", cName);
 			std::string sStackName(pStack->GetName());
 			int stackNameHash = std::hash<std::string>()(sStackName);
-			nodeStacksData[stackNameHash] = GetNodeLayersData(pStack, pNodeContentList);
+			nodeStacksData[stackNameHash] = GetAllNodesData(pNodeContentList);
 		}
 	}
 	/*
