@@ -6,6 +6,7 @@
 #include <string>
 #include <math.h>
 #include <winuser.h>
+#include "FBXHelper.h"
 #include "DXUTAni.h"
 
 using namespace DirectX;
@@ -20,76 +21,28 @@ typedef std::pair<float, float> CurveNode;
 * 动画的曲线数据
 */
 typedef std::vector<CurveNode> CurveData;
-
+static DirectX::XMMATRIX ToXm(const FbxAMatrix& pSrc)
 /*
 * 存储一Node的变换曲线数据
 * 存储SRT各坐标系的变换曲线数据
 */
-struct NodeAnimationTransforms
+struct NodeStackTransforms
 {
-	CurveData curveTX;
-	CurveData curveTY;
-	CurveData curveTZ;
-
-	CurveData curveRX;
-	CurveData curveRY;
-	CurveData curveRZ;
-
-	CurveData curveSX;
-	CurveData curveSY;
-	CurveData curveSZ;
-
-	//todo 先用线性插值算一版看看效果
-	float GetCurveValue(float time, CurveData& curveData, float originalValue)
-	{
-		if (!curveData.size())
-		{
-			return originalValue;
-		}
-		float timeLen = curveData.back().first;
-		float loopTime = std::fmod(time, timeLen);
-		CurveData::iterator prev = curveData.begin();
-		CurveData::iterator next = curveData.end();
-		for (auto it = curveData.begin(); it != curveData.end(); it++)
-		{
-			if ((it->first - loopTime) > 0.00001)
-			{
-				next = it;
-				break;
-			}
-			prev = it;
-		}
-		float percent = (loopTime - prev->second) / (next->first - prev->second);
-		return prev->second + (next->second - prev->second)*percent;
-	}
-
+	std::vector<NodeTransform> nodeTransforms;
+	std::vector<float> times;
 	/*
 	* 根据传入的时间算出骨骼点的变换
 	*/
-	XMMATRIX GetMatrix(float time, XMMATRIX& originalMatrix)
+	XMMATRIX GetMatrix(float time)
 	{
-		XMVECTOR scale, rotation, transform;
-		XMMatrixDecompose(&scale, &rotation, &transform,  originalMatrix);
-		float tx = GetCurveValue(time, curveTX,  XMVectorGetX(transform));
-		float ty = GetCurveValue(time, curveTY, XMVectorGetY(transform));
-		float tz = GetCurveValue(time, curveTZ, XMVectorGetZ(transform));
-
-		XMVECTOR eulerRotation;
-		float angle;
-		XMQuaternionToAxisAngle(&eulerRotation, &angle, rotation);
-
-		float rx = GetCurveValue(time, curveRX, XMVectorGetX(eulerRotation));
-		float ry = GetCurveValue(time, curveRY, XMVectorGetY(eulerRotation));
-		float rz = GetCurveValue(time, curveRZ, XMVectorGetZ(eulerRotation));
-
-		float sx = GetCurveValue(time, curveSX, XMVectorGetX(scale));
-		float sy = GetCurveValue(time, curveSY, XMVectorGetY(scale));
-		float sz = GetCurveValue(time, curveSZ, XMVectorGetZ(scale));
-
-		XMMATRIX scaleM = XMMatrixScaling(sx, sy, sz);
-		XMMATRIX rotationM = XMMatrixRotationRollPitchYaw(rx/180.0*3.1415, ry/180.0*3.1415, rz/180.0*3.1415);
-		XMMATRIX transM = XMMatrixTranslation(tx, ty, tz);
-		return scaleM*rotationM*transM;
+		int startIdx = 0;
+		int endIdx = 0;
+		time = fmod(time, times.end() - times.begin());
+		while (endIdx < times.size() && times[endIdx] < time) {
+			endIdx += 1;
+			startIdx += 1;
+		}
+		
 	}
 };
 
@@ -97,7 +50,7 @@ struct NodeAnimationTransforms
 * index 和FBXHelper得到的骨骼变换列表一致
 * 存储一个Layer里面的所有Node的变换信息
 */
-typedef std::vector<NodeAnimationTransforms> AllNodesData;
+typedef std::vector<NodeStackTransforms> AllNodesData;
 
 /*
 * 存储一个AnimationStack下多个Layer的信息
@@ -122,38 +75,25 @@ class FBXAnimationHelper
 {
 public:
 
-	static NodeAnimationTransforms GetNodeAnimationTransform(FbxAnimStack *pStack, FbxNode *pNode)
+	static NodeStackTransforms GetNodeAnimationTransform(FbxAnimStack *pStack, FbxNode *pNode)
 	{
-		NodeAnimationTransforms nodeAnimatinforms;
+		NodeStackTransforms nodeAnimatinforms;
 		FbxTimeSpan timeSpan = pStack->GetLocalTimeSpan();
-		FbxTimeSpan start = timeSpan.GetStart();
-		FbxTimeSpan end = timeSpan.GetStop();
-		nodeAnimatinforms.curveTX = GetCurveData(pCurveTX);
-		nodeAnimatinforms.curveTY = GetCurveData(pCurveTY);
-		nodeAnimatinforms.curveTZ = GetCurveData(pCurveTZ);
-
-		nodeAnimatinforms.curveRX = GetCurveData(pCurveRX);
-		nodeAnimatinforms.curveRY = GetCurveData(pCurveRY);
-		nodeAnimatinforms.curveRZ = GetCurveData(pCurveRZ);
-
-		nodeAnimatinforms.curveSX = GetCurveData(pCurveSX);
-		nodeAnimatinforms.curveSY = GetCurveData(pCurveSY);
-		nodeAnimatinforms.curveSZ = GetCurveData(pCurveSZ);
-
-		if (nodeAnimatinforms.curveRX.size() == nodeAnimatinforms.curveRY.size()&&
-			nodeAnimatinforms.curveRZ.size() == nodeAnimatinforms.curveRY.size() &&
-			nodeAnimatinforms.curveTX.size() == nodeAnimatinforms.curveTY.size() &&
-			nodeAnimatinforms.curveTY.size() == nodeAnimatinforms.curveTZ.size() &&
-			nodeAnimatinforms.curveSX.size() == nodeAnimatinforms.curveSY.size() &&
-			nodeAnimatinforms.curveSZ.size() == nodeAnimatinforms.curveSY.size())
+		FbxTime start = timeSpan.GetStart();
+		FbxTime timeI = timeSpan.GetStart();
+		FbxTime end = timeSpan.GetStop();
+		nodeAnimatinforms.start = start;
+		nodeAnimatinforms.end = end;
+		FbxTime durationTime = timeSpan.GetDuration();
+		for (;timeI < tend; timeI+=durationTime)
 		{
-
+			FbxAMatrix fbxMatrix = pNode->EvaluateLocalTransform(timeI);
+			DirectX::XMMATRIX dxMatrix = ToXm(fbxMatrix);
+			NodeTransform nodeT;
+			XMMatrixDecompose(&(nodeT.scales), &(nodeT.quaternion), &(nodeT.translation), dxMatrix);
+			nodeAnimatinforms.nodeTransforms.push_back(nodeT);
+			nodeAnimatinforms.times.push_back((timeI - start).GetSecondDouble());
 		}
-		else
-		{
-			//FBXHelper::Log("jbx: Curve Len Not Equal");
-		}
-
 		return nodeAnimatinforms;
 	}
 
@@ -162,7 +102,7 @@ public:
 		AllNodesData allNodesData;
 		for (auto it = pNodeContentList->begin(); it != pNodeContentList->end(); it++)
 		{
-			NodeAnimationTransforms animTrans = GetNodeAnimationTransform(pStack, it->pNode);
+			NodeStackTransforms animTrans = GetNodeAnimationTransform(pStack, it->pNode);
 			allNodesData.push_back(animTrans);
 		}
 		return allNodesData;
@@ -235,7 +175,7 @@ public:
 					{
 						pMatrix = outMatrix[g_pNodeContentList[i].parentIdx];
 					}
-					NodeAnimationTransforms nodeT = pNodesData->at(i);
+					NodeStackTransforms nodeT = pNodesData->at(i);
 					if (i == 12)
 					{
 						FBXHelper::Log("break----------------------");
