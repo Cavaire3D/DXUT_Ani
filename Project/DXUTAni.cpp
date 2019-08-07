@@ -205,8 +205,7 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 	FBXAnimationHelper::EvalAllNodePos(g_OrginalTransform,
 																*g_pNodeContentList,
 																g_stackData,
-																std::string("run"),
-																std::string("Layer0"),
+																std::string("shot"),
 																GetRunningTime(),
 																g_realTimeVertextList); //StackName :run ,LayerName:Layer0
 }

@@ -84,31 +84,31 @@ public:
 			static_cast<FLOAT>(pSrc.Get(3, 0)), static_cast<FLOAT>(pSrc.Get(3, 2)), static_cast<FLOAT>(pSrc.Get(3, 1)), static_cast<FLOAT>(pSrc.Get(3, 3)));
 	}
 
-	static NodeTransform GetLocalTransform(FbxNode* fbxNode)
+static NodeTransform GetLocalTransform(FbxNode* fbxNode)
 	{
 		FbxAMatrix fbxM = fbxNode->EvaluateLocalTransform();
 		DirectX::XMMATRIX lM = ToXm(fbxM);
 		NodeTransform nodeT;
 		XMMatrixDecompose(&(nodeT.scales), &(nodeT.quaternion), &(nodeT.translation), lM);
 		return nodeT;
-	}
+}
 
-	static void GetNodeSkeletonNodeTransList(FbxNode *fbxNode, std::vector<NodeContent> *g_pNodeContentList, int parentIdx = -1)
+static void GetNodeSkeletonNodeTransList(FbxNode *fbxNode, std::vector<NodeContent> *g_pNodeContentList, int parentIdx = -1)
+{
+	int idx = -1;
+	FbxNodeAttribute *nodeAttr = fbxNode->GetNodeAttribute();
+	if (nodeAttr == nullptr ||
+		nodeAttr->GetAttributeType() == FbxNodeAttribute::eSkeleton ||
+		nodeAttr->GetAttributeType() == FbxNodeAttribute::eNull)
 	{
-		int idx = -1;
-		FbxNodeAttribute *nodeAttr = fbxNode->GetNodeAttribute();
-		if (nodeAttr == nullptr ||
-			nodeAttr->GetAttributeType() == FbxNodeAttribute::eSkeleton ||
-			nodeAttr->GetAttributeType() == FbxNodeAttribute::eNull)
-		{
-			NodeContent content;
-			content.parentIdx = parentIdx;
-			content.index = g_pNodeContentList->size();
-			content.pNode = fbxNode;
-			content.transform = GetLocalTransform(fbxNode);
-			g_pNodeContentList->push_back(content);
-			idx = content.index;
-		}
+		NodeContent content;
+		content.parentIdx = parentIdx;
+		content.index = g_pNodeContentList->size();
+		content.pNode = fbxNode;
+		content.transform = GetLocalTransform(fbxNode);
+		g_pNodeContentList->push_back(content);
+		idx = content.index;
+	}
 		
 		for (int i= 0; i < fbxNode->GetChildCount(); i++)
 		{

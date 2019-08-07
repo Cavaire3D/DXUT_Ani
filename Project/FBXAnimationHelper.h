@@ -21,7 +21,6 @@ typedef std::pair<float, float> CurveNode;
 * 动画的曲线数据
 */
 typedef std::vector<CurveNode> CurveData;
-static DirectX::XMMATRIX ToXm(const FbxAMatrix& pSrc)
 /*
 * 存储一Node的变换曲线数据
 * 存储SRT各坐标系的变换曲线数据
@@ -29,7 +28,7 @@ static DirectX::XMMATRIX ToXm(const FbxAMatrix& pSrc)
 struct NodeStackTransforms
 {
 	std::vector<NodeTransform> nodeTransforms;
-	std::vector<float> times;
+	std::vector<float> keyTimes;
 	/*
 	* 根据传入的时间算出骨骼点的变换
 	*/
@@ -37,12 +36,28 @@ struct NodeStackTransforms
 	{
 		int startIdx = 0;
 		int endIdx = 0;
-		time = fmod(time, times.end() - times.begin());
-		while (endIdx < times.size() && times[endIdx] < time) {
+		time = fmod(time, keyTimes[keyTimes.size() - 1] - keyTimes[0]);
+		while (endIdx < keyTimes.size() && keyTimes.at(endIdx) < time) {
 			endIdx += 1;
-			startIdx += 1;
 		}
-		
+		endIdx = endIdx < (keyTimes.size() - 1) ? endIdx : (keyTimes.size() - 1);
+		if (endIdx == 0) {
+			DirectX::XMMATRIX sM = DirectX::XMMatrixScalingFromVector(nodeTransforms[0].scales);
+			DirectX::XMMATRIX rM = DirectX::XMMatrixRotationQuaternion(nodeTransforms[0].quaternion);
+			DirectX::XMMATRIX tM = DirectX::XMMatrixTranslationFromVector(nodeTransforms[0].translation);
+			return sM*rM*tM;
+		}
+		else {
+			startIdx = endIdx - 1;
+			float lerpPercent = (time - keyTimes[startIdx]) / (keyTimes[endIdx] - keyTimes[startIdx]);
+			XMVECTOR scale = XMVectorLerp(nodeTransforms[startIdx].scales, nodeTransforms[endIdx].scales, lerpPercent);
+			XMVECTOR quater = XMQuaternionSlerp(nodeTransforms[startIdx].quaternion, nodeTransforms[endIdx].quaternion, lerpPercent);
+			XMVECTOR tranlation = XMVectorLerp(nodeTransforms[startIdx].translation, nodeTransforms[endIdx].translation, lerpPercent);
+			DirectX::XMMATRIX sM = DirectX::XMMatrixScalingFromVector(scale);
+			DirectX::XMMATRIX rM = DirectX::XMMatrixRotationQuaternion(quater);
+			DirectX::XMMATRIX tM = DirectX::XMMatrixTranslationFromVector(tranlation);
+			return sM*rM*tM;
+		}
 	}
 };
 
@@ -82,17 +97,16 @@ public:
 		FbxTime start = timeSpan.GetStart();
 		FbxTime timeI = timeSpan.GetStart();
 		FbxTime end = timeSpan.GetStop();
-		nodeAnimatinforms.start = start;
-		nodeAnimatinforms.end = end;
-		FbxTime durationTime = timeSpan.GetDuration();
-		for (;timeI < tend; timeI+=durationTime)
+		FbxTime durationTime;
+		durationTime.SetSecondDouble(1.0 / 30.0);
+		for (;timeI < end; timeI+=durationTime)
 		{
 			FbxAMatrix fbxMatrix = pNode->EvaluateLocalTransform(timeI);
-			DirectX::XMMATRIX dxMatrix = ToXm(fbxMatrix);
+			DirectX::XMMATRIX dxMatrix = FBXHelper::ToXm(fbxMatrix);
 			NodeTransform nodeT;
 			XMMatrixDecompose(&(nodeT.scales), &(nodeT.quaternion), &(nodeT.translation), dxMatrix);
 			nodeAnimatinforms.nodeTransforms.push_back(nodeT);
-			nodeAnimatinforms.times.push_back((timeI - start).GetSecondDouble());
+			nodeAnimatinforms.keyTimes.push_back((timeI - start).GetSecondDouble());
 		}
 		return nodeAnimatinforms;
 	}
@@ -108,23 +122,6 @@ public:
 		return allNodesData;
 	}
 
-	static NodeAnimationLayersData GetNodeLayersData(FbxAnimStack *pStack,std::vector<NodeContent> *pNodeContentList)
-	{
-		pStack->GetLocalTimeSpan();
-
-		NodeAnimationLayersData nodeLayersData;
-		int layerCnt = pStack->GetMemberCount<FbxAnimLayer>();
-		for (int i = 0; i < layerCnt; i++)
-		{
-			FbxAnimLayer* pLayer = pStack->GetMember<FbxAnimLayer>(i);
-			std::string sPlayerName(pLayer->GetName());
-			int cNameHash = std::hash<std::string>()(sPlayerName);
-			FormatLog("jbx:LayerName %s", pLayer->GetName());
-			nodeLayersData[cNameHash] = GetAllNodesData(pLayer, pNodeContentList);
-		}
-		return nodeLayersData;
-	}
-
 	static void GetNodeStacksData(std::vector<NodeContent> *pNodeContentList, NodeAnimationStacksData &nodeStacksData)
 	{
 		FbxScene* pScene = FBXHelper::GetScene();
@@ -138,7 +135,7 @@ public:
 			FormatLog("jbx:stackName %s;", cName);
 			std::string sStackName(pStack->GetName());
 			int stackNameHash = std::hash<std::string>()(sStackName);
-			nodeStacksData[stackNameHash] = GetAllNodesData(pNodeContentList);
+			nodeStacksData[stackNameHash] = GetAllNodesData(pStack, pNodeContentList);
 		}
 	}
 	/*
@@ -153,64 +150,37 @@ public:
 		std::vector<NodeContent> &g_pNodeContentList,
 		NodeAnimationStacksData &nodeStacksData,
 		std::string animationName,
-		std::string layerName,
 		float time,
 		std::vector<SimpleVertex> &vertextList)
 	{
 		vertextList.clear();
 		std::vector<DirectX::XMMATRIX> outMatrix;
 		int stackHash = std::hash<std::string>()(animationName);
-		NodeAnimationStacksData::iterator stackIter = nodeStacksData.find(stackHash);
-		if (stackIter != nodeStacksData.end())
+		NodeAnimationStacksData::iterator stackData = nodeStacksData.find(stackHash);
+		AllNodesData nodesData = stackData->second;
+		for (int i= 0;i < nodesData.size(); i++)
 		{
-			int layerHash = std::hash<std::string>()(layerName);
-			NodeAnimationLayersData::iterator layerIter = stackIter->second.find(layerHash);
-			if (layerIter != stackIter->second.end())
+			XMMATRIX pMatrix = XMMatrixIdentity();
+			if (g_pNodeContentList[i].parentIdx >= 0)
 			{
-				AllNodesData *pNodesData = &(layerIter->second);
-				for (int i =0; i < pNodesData->size(); i++)
-				{
-					XMMATRIX pMatrix = XMMatrixIdentity();
-					if (g_pNodeContentList[i].parentIdx >= 0)
-					{
-						pMatrix = outMatrix[g_pNodeContentList[i].parentIdx];
-					}
-					NodeStackTransforms nodeT = pNodesData->at(i);
-					if (i == 12)
-					{
-						FBXHelper::Log("break----------------------");
-					}
-					XMMATRIX localM = nodeT.GetMatrix(time, originalTransform[i]);
-					outMatrix.push_back(localM * pMatrix);
-					
-					XMVECTOR outS, outQ, outT;
-					XMMatrixDecompose(&outS, &outQ, &outT, pMatrix);
-					SimpleVertex pVertext;
-					pVertext.Pos.x = XMVectorGetX(outT);
-					pVertext.Pos.y = XMVectorGetY(outT);
-					pVertext.Pos.z = XMVectorGetZ(outT);
-					SimpleVertex cVertext;
-					XMMatrixDecompose(&outS, &outQ, &outT, outMatrix[i]);
-					cVertext.Pos.x = XMVectorGetX(outT);
-					cVertext.Pos.y = XMVectorGetY(outT);
-					cVertext.Pos.z = XMVectorGetZ(outT);
-					vertextList.push_back(pVertext);
-					vertextList.push_back(cVertext);
-					char log[100];
-					snprintf(log, 100, "jbx:index%d, pos:%.3f, %.3f, %.3f\n", i, cVertext.Pos.x, cVertext.Pos.y, cVertext.Pos.z);
-					FBXHelper::Log(log);
-				}
+				pMatrix = outMatrix[g_pNodeContentList[i].parentIdx];
 			}
-			else
-			{
-				MessageBox(0, L"Layer Name Error", L"Error", MB_ICONEXCLAMATION);
-				exit(-1);
-			}
-		}
-		else
-		{
-			MessageBox(0, L"Animation Name Error", L"Error", MB_ICONEXCLAMATION);
-			exit(-1);
+			XMMATRIX localM = nodesData[i].GetMatrix(time);
+			outMatrix.push_back(localM * pMatrix);
+
+			XMVECTOR outS, outQ, outT;
+			XMMatrixDecompose(&outS, &outQ, &outT, pMatrix);
+			SimpleVertex pVertext;
+			pVertext.Pos.x = XMVectorGetX(outT);
+			pVertext.Pos.y = XMVectorGetY(outT);
+			pVertext.Pos.z = XMVectorGetZ(outT);
+			SimpleVertex cVertext;
+			XMMatrixDecompose(&outS, &outQ, &outT, outMatrix[i]);
+			cVertext.Pos.x = XMVectorGetX(outT);
+			cVertext.Pos.y = XMVectorGetY(outT);
+			cVertext.Pos.z = XMVectorGetZ(outT);
+			vertextList.push_back(pVertext);
+			vertextList.push_back(cVertext);
 		}
 	}
 };
