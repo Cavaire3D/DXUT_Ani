@@ -20,10 +20,16 @@
     <Filter Include="FBX\Animation">
       <UniqueIdentifier>{55939d6c-f8d7-4bb3-81d6-3fbff6f6f622}</UniqueIdentifier>
     </Filter>
+    <Filter Include="imgui">
+      <UniqueIdentifier>{df580df8-e8ae-49d7-8a7a-ce1d8e764ead}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\DXUT\Optional\directx.ico">
       <Filter>Resource Files</Filter>
+    </None>
+    <None Include="..\imgui\.travis.yml">
+      <Filter>imgui</Filter>
     </None>
   </ItemGroup>
   <ItemGroup>
@@ -49,6 +55,24 @@
       <Filter>FBX\Animation</Filter>
     </ClInclude>
     <ClInclude Include="DXUTAni.h" />
+    <ClInclude Include="..\imgui\imconfig.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\imgui\imgui.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\imgui\imgui_impl_win32.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\imgui\imgui_internal.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\imgui\imgui_impl_dx11.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
+    <ClInclude Include="..\imgui\IMGUIHelper.h">
+      <Filter>imgui</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\AnimationUtility.cxx">
@@ -64,10 +88,36 @@
     <ClCompile Include="FBXHelper.cpp">
       <Filter>FBX</Filter>
     </ClCompile>
+    <ClCompile Include="..\imgui\imgui.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\imgui_demo.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\imgui_draw.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\imgui_impl_win32.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\imgui_widgets.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\imgui_impl_dx11.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="..\imgui\IMGUIHelper.cpp">
+      <Filter>imgui</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="SimpleShader.fx">
       <Filter>Shaders</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <Natvis Include="..\imgui\imgui.natvis">
+      <Filter>imgui</Filter>
+    </Natvis>
   </ItemGroup>
 </Project>

@@ -157,6 +157,10 @@ public:
 		std::vector<DirectX::XMMATRIX> outMatrix;
 		int stackHash = std::hash<std::string>()(animationName);
 		NodeAnimationStacksData::iterator stackData = nodeStacksData.find(stackHash);
+		if (stackData == nodeStacksData.end())
+		{
+			return;
+		}
 		AllNodesData nodesData = stackData->second;
 		for (int i= 0;i < nodesData.size(); i++)
 		{

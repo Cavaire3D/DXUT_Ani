@@ -9,6 +9,10 @@
 #include <list>
 #include <vector>
 #include "DXUTAni.h"
+#include "../imgui/imgui.h"
+#include "../imgui/imgui_impl_win32.h"
+#include "../imgui/imgui_impl_dx11.h"
+#include "../imgui/IMGUIHelper.h"
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
@@ -32,6 +36,7 @@ NodeAnimationStacksData g_stackData;
 SimpleVertex* g_pVertexs;
 std::vector<SimpleVertex> g_realTimeVertextList;
 std::vector<XMMATRIX> g_OrginalTransform;
+
 
 struct CBChangesEveryFrame
 {
@@ -75,7 +80,7 @@ void ReadNode(FbxNode *parentNode)
 
 void ReadFbx()
 {
-	if (!FBXHelper::LoadFbx("humanoid.fbx"))
+	if (!FBXHelper::LoadFbx("Ami@walk.fbx"))
 	{
 		MessageBox(0, L"LoadFbxError", L"Error", MB_ICONEXCLAMATION);
 		exit(-1);
@@ -126,6 +131,7 @@ void CreateVertexBuffer(SimpleVertex* pVertexs, ID3D11Device *pd3dDevice)
 HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFACE_DESC* pBackBufferSurfaceDesc,
                                       void* pUserContext )
 {
+	IMGUIHelper::ImGUIInit();
 	ReadFbx();
 	DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifdef _DEBUG
@@ -171,14 +177,6 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 
 	ReCalculateVertexs();
 	CreateVertexBuffer(g_pVertexs, pd3dDevice);
-
-	g_World = XMMatrixIdentity();
-
-	XMVECTORF32 eye = { 0.0f, 3.0f, -1000.0f, 0.0f };
-	XMVECTORF32 at = { 0.0f, 1.0f, 0.0f };
-	XMVECTORF32 up = { 0.0f, 1.0f, 0.0f };
-	g_View = XMMatrixLookAtLH(eye, at, up);
-	
     return S_OK;
 }
 
@@ -191,6 +189,7 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 {
 	float fAspect = static_cast<float>(pBackBufferSurfaceDesc->Width) / static_cast<float>(pBackBufferSurfaceDesc->Height);
 	g_Projection = XMMatrixPerspectiveFovLH(XM_PI * 0.25f, fAspect, 0.1f, 50000);
+	IMGUIHelper::ImGUIResize();
     return S_OK;
 }
 
@@ -205,9 +204,16 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 	FBXAnimationHelper::EvalAllNodePos(g_OrginalTransform,
 																*g_pNodeContentList,
 																g_stackData,
-																std::string("shot"),
+																std::string("Take 001"),
 																GetRunningTime(),
 																g_realTimeVertextList); //StackName :run ,LayerName:Layer0
+	IMGUIHelper::ImGUIUpdate();
+	g_World = XMMatrixIdentity();
+	ImGUIData *pData = IMGUIHelper::GetData();
+	XMVECTORF32 eye = { pData->cameraPos[0], pData->cameraPos[1], pData->cameraPos[2], 0.0f };
+	XMVECTORF32 at = { 0.0f, 1.0f, 0.0f };
+	XMVECTORF32 up = { 0.0f, 1.0f, 0.0f };
+	g_View = XMMatrixLookAtLH(eye, at, up);
 }
 
 //重新计算顶点位置
@@ -281,6 +287,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 	pd3dImmediateContext->PSSetShader(g_pPixelShader, nullptr, 0);
 	pd3dImmediateContext->PSSetConstantBuffers(0, 1, &g_pCBChangesEveryFrame);
 	pd3dImmediateContext->Draw(g_lineCnt*2, 0);
+	IMGUIHelper::ImGUIDraw();
 }
 
 
@@ -297,15 +304,19 @@ void CALLBACK OnD3D11ReleasingSwapChain( void* pUserContext )
 //--------------------------------------------------------------------------------------
 void CALLBACK OnD3D11DestroyDevice( void* pUserContext )
 {
+	// Cleanup
+	IMGUIHelper::ImGUIClose();
 }
 
-
+extern LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 //--------------------------------------------------------------------------------------
 // Handle messages to the application
 //--------------------------------------------------------------------------------------
 LRESULT CALLBACK MsgProc( HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam,
                           bool* pbNoFurtherProcessing, void* pUserContext )
 {
+	if(ImGui_ImplWin32_WndProcHandler(hWnd, uMsg, wParam, lParam))
+		return true;
     return 0;
 }
 
@@ -374,6 +385,7 @@ int WINAPI wWinMain( _In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
 
     // Only require 10-level hardware or later
     DXUTCreateDevice( D3D_FEATURE_LEVEL_10_0, true, 800, 600 );
+
     DXUTMainLoop(); // Enter into the DXUT ren  der loop
 
     // Perform any application-level cleanup here
