@@ -13,6 +13,7 @@
 #include "../imgui/imgui_impl_win32.h"
 #include "../imgui/imgui_impl_dx11.h"
 #include "../imgui/IMGUIHelper.h"
+#include "Animation.h"
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
@@ -27,16 +28,11 @@ ID3D11VertexShader* g_pVertexShader;
 ID3D11PixelShader* g_pPixelShader;
 ID3D11InputLayout* g_pVertextLayout;
 ID3D11InputLayout* g_pPixelLayout;
-int g_lineCnt = 0;
 ID3D11SamplerState*         g_pSamplerLinear = nullptr;
 ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
-std::vector<NodeContent> *g_pNodeContentList = nullptr;
-NodeAnimationStacksData g_stackData;
-SimpleVertex* g_pVertexs;
-std::vector<SimpleVertex> g_realTimeVertextList;
-std::vector<XMMATRIX> g_OrginalTransform;
-
+Animation *pRunAnimaiton = nullptr;
+Animation *pWalkAnimation = nullptr;
 
 struct CBChangesEveryFrame
 {
@@ -50,7 +46,6 @@ float GetRunningTime()
 	return(float)time / CLOCKS_PER_SEC;
 }
 
-void ReCalculateVertexs();
 
 //--------------------------------------------------------------------------------------
 // Reject any D3D11 devices that aren't acceptable by returning false
@@ -70,34 +65,11 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
     return true;
 }
 
-
-void ReadNode(FbxNode *parentNode)
-{
-	g_pNodeContentList = new std::vector<NodeContent>();
-	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, g_pNodeContentList);
-	FBXAnimationHelper::GetNodeStacksData(g_pNodeContentList, g_stackData);
-}
-
-void ReadFbx()
-{
-	if (!FBXHelper::LoadFbx("Ami@walk.fbx"))
-	{
-		MessageBox(0, L"LoadFbxError", L"Error", MB_ICONEXCLAMATION);
-		exit(-1);
-	}
-	FbxNode* lRootNode = FBXHelper::GetScene()->GetRootNode();
-	if (!lRootNode) {
-		MessageBox(0, L"LoadFbxError", L"Error", MB_ICONEXCLAMATION);
-		exit(-1);
-	}
-	ReadNode(lRootNode);
-}
-
 void CreateVertexBuffer(SimpleVertex* pVertexs, ID3D11Device *pd3dDevice)
 {
 	D3D11_BUFFER_DESC bd = {};
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * g_lineCnt * 2;
+	bd.ByteWidth = sizeof(SimpleVertex) * pRunAnimaiton->boneCnt * 2;
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
@@ -132,7 +104,10 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
                                       void* pUserContext )
 {
 	IMGUIHelper::ImGUIInit();
-	ReadFbx();
+	pRunAnimaiton = new Animation();
+	pRunAnimaiton->Init(std::string("Ami@run.fbx"));
+	pWalkAnimation = new Animation();
+	pWalkAnimation->Init(std::string("Ami@walk.fbx"));
 	DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifdef _DEBUG
 	// Set the D3DCOMPILE_DEBUG flag to embed debug information in the shaders.
@@ -174,9 +149,6 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 	{
 		return hr;
 	}
-
-	ReCalculateVertexs();
-	CreateVertexBuffer(g_pVertexs, pd3dDevice);
     return S_OK;
 }
 
@@ -199,14 +171,7 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 //--------------------------------------------------------------------------------------
 void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext )
 {
-	//g_World = XMMatrixRotationY(60.0f * XMConvertToRadians((float)fTime));
-	//g_World = XMMatrixRotationRollPitchYaw(30, 30, 30);
-	FBXAnimationHelper::EvalAllNodePos(g_OrginalTransform,
-																*g_pNodeContentList,
-																g_stackData,
-																std::string("Take 001"),
-																GetRunningTime(),
-																g_realTimeVertextList); //StackName :run ,LayerName:Layer0
+	pRunAnimaiton->EvalAllNodePos(std::string("Take 001"), GetRunningTime());
 	IMGUIHelper::ImGUIUpdate();
 	g_World = XMMatrixIdentity();
 	ImGUIData *pData = IMGUIHelper::GetData();
@@ -216,53 +181,13 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 	g_View = XMMatrixLookAtLH(eye, at, up);
 }
 
-//重新计算顶点位置
-void ReCalculateVertexs()
-{
-	std::vector<SimpleVertex> vertexList;
-	for (auto iter = g_pNodeContentList->begin(); iter != g_pNodeContentList->end(); iter++)
-	{
-		XMMATRIX global;
-		if (iter->parentIdx < 0)
-		{
-			g_OrginalTransform.push_back(iter->transform.ToMatrix());
-		}
-		else
-		{
-			XMMATRIX pM = g_OrginalTransform[iter->parentIdx];
-			XMMATRIX lM = iter->transform.ToMatrix();
-			XMMATRIX gM = lM*pM;
-			g_OrginalTransform.push_back(gM);
-			XMVECTOR outS, outQ, outT;
-			XMMatrixDecompose(&outS, &outQ, &outT, pM);
-			SimpleVertex pVertext;
-			pVertext.Pos.x = XMVectorGetX(outT);
-			pVertext.Pos.y = XMVectorGetY(outT);
-			pVertext.Pos.z = XMVectorGetZ(outT);
-			SimpleVertex cVertext;
-			XMMatrixDecompose(&outS, &outQ, &outT, gM);
-			cVertext.Pos.x = XMVectorGetX(outT);
-			cVertext.Pos.y = XMVectorGetY(outT);
-			cVertext.Pos.z = XMVectorGetZ(outT);
-			vertexList.push_back(pVertext);
-			vertexList.push_back(cVertext);
-		}
-	}
-	g_lineCnt = vertexList.size() / 2;
-	g_pVertexs = new SimpleVertex[vertexList.size()];
-	for (int i= 0; i< vertexList.size(); i++)
-	{
-		g_pVertexs[i].Pos = vertexList[i].Pos;
-	}
-}
-
 //--------------------------------------------------------------------------------------
 // Render the scene using the D3D11 device
 //--------------------------------------------------------------------------------------
 void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext,
                                   double fTime, float fElapsedTime, void* pUserContext )
 {
-	CreateVertexBuffer(g_realTimeVertextList.data(), pd3dDevice);
+	CreateVertexBuffer(pRunAnimaiton->realTimeVertextList.data(), pd3dDevice);
 
     // Clear render target and the depth stencil 
     auto pRTV = DXUTGetD3D11RenderTargetView();
@@ -286,7 +211,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 	pd3dImmediateContext->VSSetConstantBuffers(0, 1, &g_pCBChangesEveryFrame);
 	pd3dImmediateContext->PSSetShader(g_pPixelShader, nullptr, 0);
 	pd3dImmediateContext->PSSetConstantBuffers(0, 1, &g_pCBChangesEveryFrame);
-	pd3dImmediateContext->Draw(g_lineCnt*2, 0);
+	pd3dImmediateContext->Draw(pRunAnimaiton->boneCnt*2, 0);
 	IMGUIHelper::ImGUIDraw();
 }
 

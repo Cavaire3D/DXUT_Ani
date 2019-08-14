@@ -73,6 +73,9 @@
     <ClInclude Include="..\imgui\IMGUIHelper.h">
       <Filter>imgui</Filter>
     </ClInclude>
+    <ClInclude Include="Animation.h">
+      <Filter>FBX\Animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\AnimationUtility.cxx">
@@ -108,6 +111,9 @@
     </ClCompile>
     <ClCompile Include="..\imgui\IMGUIHelper.cpp">
       <Filter>imgui</Filter>
+    </ClCompile>
+    <ClCompile Include="Animation.cpp">
+      <Filter>FBX\Animation</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

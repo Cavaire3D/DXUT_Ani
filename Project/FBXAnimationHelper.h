@@ -156,12 +156,12 @@ public:
 		vertextList.clear();
 		std::vector<DirectX::XMMATRIX> outMatrix;
 		int stackHash = std::hash<std::string>()(animationName);
-		NodeAnimationStacksData::iterator stackData = nodeStacksData.find(stackHash);
-		if (stackData == nodeStacksData.end())
+		NodeAnimationStacksData::iterator stacksData = nodeStacksData.find(stackHash);
+		if (stacksData == nodeStacksData.end())
 		{
 			return;
 		}
-		AllNodesData nodesData = stackData->second;
+		AllNodesData nodesData = stacksData->second;
 		for (int i= 0;i < nodesData.size(); i++)
 		{
 			XMMATRIX pMatrix = XMMatrixIdentity();
