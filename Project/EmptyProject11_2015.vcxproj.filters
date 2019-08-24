@@ -76,6 +76,9 @@
     <ClInclude Include="Animation.h">
       <Filter>FBX\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="AnimationBlend.h">
+      <Filter>FBX\Animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\AnimationUtility.cxx">
@@ -113,6 +116,9 @@
       <Filter>imgui</Filter>
     </ClCompile>
     <ClCompile Include="Animation.cpp">
+      <Filter>FBX\Animation</Filter>
+    </ClCompile>
+    <ClCompile Include="AnimationBlend.cpp">
       <Filter>FBX\Animation</Filter>
     </ClCompile>
   </ItemGroup>

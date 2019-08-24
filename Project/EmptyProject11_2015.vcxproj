@@ -420,6 +420,9 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="Animation.cpp" />
+    <ClCompile Include="AnimationBlend.cpp">
+      <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="DXUTAni.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Profile|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
@@ -453,6 +456,7 @@
     <ClInclude Include="..\imgui\imgui_impl_win32.h" />
     <ClInclude Include="..\imgui\imgui_internal.h" />
     <ClInclude Include="Animation.h" />
+    <ClInclude Include="AnimationBlend.h" />
     <ClInclude Include="DXUTAni.h" />
     <ClInclude Include="FBXAnimationHelper.h" />
     <ClInclude Include="FBXHelper.h" />

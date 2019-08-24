@@ -17,10 +17,11 @@ public:
 	std::vector<SimpleVertex> realTimeVertextList;
 	AllNodesData *GetStackAllNodesData(std::string &stackName);
 	int boneCnt;
+	NodeAnimationStacksData stacksData;
 private:
 	void ReadNode(FbxNode *parentNode);
 	
-	NodeAnimationStacksData stacksData;
+	
 	
 	
 };

@@ -29,6 +29,33 @@ struct NodeStackTransforms
 {
 	std::vector<NodeTransform> nodeTransforms;
 	std::vector<float> keyTimes;
+
+	NodeTransform GetNodeTransform(float time)
+	{
+		int startIdx = 0;
+		int endIdx = 0;
+		time = fmod(time, keyTimes[keyTimes.size() - 1] - keyTimes[0]);
+		while (endIdx < keyTimes.size() && keyTimes.at(endIdx) < time) {
+			endIdx += 1;
+		}
+		endIdx = endIdx < (keyTimes.size() - 1) ? endIdx : (keyTimes.size() - 1);
+		if (endIdx == 0) 
+		{
+			return nodeTransforms[0];
+		}
+		else
+		{
+			startIdx = endIdx - 1;
+			float lerpPercent = (time - keyTimes[startIdx]) / (keyTimes[endIdx] - keyTimes[startIdx]);
+			NodeTransform trans;
+			trans.scales = XMVectorLerp(nodeTransforms[startIdx].scales, nodeTransforms[endIdx].scales, lerpPercent);
+			trans.quaternion = XMQuaternionSlerp(nodeTransforms[startIdx].quaternion, nodeTransforms[endIdx].quaternion, lerpPercent);
+			trans.translation = XMVectorLerp(nodeTransforms[startIdx].translation, nodeTransforms[endIdx].translation, lerpPercent);
+			
+			return trans;
+		}
+	}
+
 	/*
 	* 根据传入的时间算出骨骼点的变换
 	*/
@@ -59,6 +86,8 @@ struct NodeStackTransforms
 			return sM*rM*tM;
 		}
 	}
+
+
 };
 
 /*

@@ -14,6 +14,7 @@
 #include "../imgui/imgui_impl_dx11.h"
 #include "../imgui/IMGUIHelper.h"
 #include "Animation.h"
+#include "AnimationBlend.h"
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
@@ -33,6 +34,7 @@ ID3D11Buffer*               g_pVertexBuffer = nullptr;
 ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
 Animation *pRunAnimaiton = nullptr;
 Animation *pWalkAnimation = nullptr;
+AnimationBlend *pAnimationBlend = nullptr;
 
 struct CBChangesEveryFrame
 {
@@ -108,6 +110,13 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
 	pRunAnimaiton->Init(std::string("Ami@run.fbx"));
 	pWalkAnimation = new Animation();
 	pWalkAnimation->Init(std::string("Ami@walk.fbx"));
+	pAnimationBlend = new AnimationBlend(pRunAnimaiton->nodeContentList);
+	BlendUnit walkBlendUnit;
+	walkBlendUnit.InitBlendUnit(pWalkAnimation, std::string("Take 001"));
+	pAnimationBlend->AddBlendUnit(walkBlendUnit);
+	BlendUnit runBlendUnit;
+	runBlendUnit.InitBlendUnit(pRunAnimaiton, std::string("Take 001"));
+	pAnimationBlend->AddBlendUnit(runBlendUnit);
 	DWORD dwShaderFlags = D3DCOMPILE_ENABLE_STRICTNESS;
 #ifdef _DEBUG
 	// Set the D3DCOMPILE_DEBUG flag to embed debug information in the shaders.
@@ -171,7 +180,7 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 //--------------------------------------------------------------------------------------
 void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext )
 {
-	pRunAnimaiton->EvalAllNodePos(std::string("Take 001"), GetRunningTime());
+	//pRunAnimaiton->EvalAllNodePos(std::string("Take 001"), GetRunningTime());
 	IMGUIHelper::ImGUIUpdate();
 	g_World = XMMatrixIdentity();
 	ImGUIData *pData = IMGUIHelper::GetData();
@@ -179,6 +188,9 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 	XMVECTORF32 at = { 0.0f, 1.0f, 0.0f };
 	XMVECTORF32 up = { 0.0f, 1.0f, 0.0f };
 	g_View = XMMatrixLookAtLH(eye, at, up);
+
+	pAnimationBlend->blendUnits[0].blendValue = pData->blendPercent;
+	pAnimationBlend->blendUnits[1].blendValue = 1.0f - pData->blendPercent;
 }
 
 //--------------------------------------------------------------------------------------
@@ -187,7 +199,7 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext,
                                   double fTime, float fElapsedTime, void* pUserContext )
 {
-	CreateVertexBuffer(pRunAnimaiton->realTimeVertextList.data(), pd3dDevice);
+	CreateVertexBuffer(pAnimationBlend->EvaluateNodePos(GetRunningTime())->data() , pd3dDevice);
 
     // Clear render target and the depth stencil 
     auto pRTV = DXUTGetD3D11RenderTargetView();

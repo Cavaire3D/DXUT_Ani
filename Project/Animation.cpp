@@ -24,7 +24,16 @@ bool Animation::Init(std::string &fbxName)
 		return false;
 	}
 	ReadNode(lRootNode);
-	lRootNode->Destroy(true);
+	std::vector<FbxNode*> pNodeList;
+	for (int i =0; i < lRootNode->GetChildCount(); i++)
+	{
+		pNodeList.push_back(lRootNode->GetChild(i));
+	}
+	for (auto pNode : pNodeList)
+	{
+		pNode->Destroy(true);
+	}
+	pNodeList.clear();
 	boneCnt = nodeContentList.size();
 	return true;
 }

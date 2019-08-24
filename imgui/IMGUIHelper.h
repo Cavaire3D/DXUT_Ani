@@ -12,6 +12,7 @@ struct ImGUIData
 {
 	float cameraPos[3];
 	float cameraCirecle;
+	float blendPercent;
 };
 
 class IMGUIHelper
