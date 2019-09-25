@@ -436,6 +436,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="Skeleton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DXUT\Core\DXUT_2015.vcxproj">
@@ -461,6 +462,7 @@
     <ClInclude Include="FBXAnimationHelper.h" />
     <ClInclude Include="FBXHelper.h" />
     <CLInclude Include="resource.h" />
+    <ClInclude Include="Skeleton.h" />
     <ResourceCompile Include="EmptyProject11.rc" />
   </ItemGroup>
   <ItemGroup>

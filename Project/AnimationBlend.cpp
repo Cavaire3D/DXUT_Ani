@@ -5,7 +5,7 @@ void AnimationBlend::AddBlendUnit(BlendUnit & blendUnit)
 	blendUnits.push_back(blendUnit);
 }
 
-std::vector<SimpleVertex>* AnimationBlend::EvaluateNodePos(float time)
+std::vector<SimpleVertex>& AnimationBlend::EvaluateNodePos(float time)
 {
 	resultPosList.clear();
 	resultNodeTrans.clear();
@@ -17,7 +17,7 @@ std::vector<SimpleVertex>* AnimationBlend::EvaluateNodePos(float time)
 	}
 	if (allWeights < 0.00001)
 	{
-		return &resultPosList;
+		return resultPosList;
 	}
 	//计算单个blendUnit的权重
 	for (auto it = blendUnits.begin(); it != blendUnits.end(); it++)
@@ -42,26 +42,38 @@ std::vector<SimpleVertex>* AnimationBlend::EvaluateNodePos(float time)
 	//然后算出混合后的位置
 	for (int nodeIdx =0 ; nodeIdx < resultNodeTrans.size(); nodeIdx++)
 	{
-		if (nodeContentList[nodeIdx].parentIdx > 0)
+		if (nodeContentList[nodeIdx].parentIdx >= 0)
 		{
 			DirectX::XMMATRIX  parentM = worldMatrixs[nodeContentList[nodeIdx].parentIdx];
-			worldMatrixs.push_back(resultNodeTrans[nodeIdx].ToMatrix()*parentM);
+			NodeTransform result(resultNodeTrans[nodeIdx].ToMatrix()*parentM);
+			worldMatrixs.push_back(result.ToMatrix());
 		}
 		else
 		{
 			worldMatrixs.push_back(resultNodeTrans[nodeIdx].ToMatrix());
 		}
+		
 		SimpleVertex pos;
 		pos.Pos = { DirectX::XMVectorGetX(worldMatrixs[nodeIdx].r[3]),
 			DirectX::XMVectorGetY(worldMatrixs[nodeIdx].r[3]),
 			DirectX::XMVectorGetZ(worldMatrixs[nodeIdx].r[3]) };
+		SimpleVertex parentPos;
+		if (nodeContentList[nodeIdx].parentIdx >=0)
+		{
+			FBXHelper::SetVertexPos(worldMatrixs[nodeContentList[nodeIdx].parentIdx], parentPos);
+		}
+		else
+		{
+			FBXHelper::SetVertexPos(DirectX::XMMatrixIdentity(), parentPos);
+		}
+		resultPosList.push_back(parentPos);
 		resultPosList.push_back(pos);
 	}
 
-	return &resultPosList;
+	return resultPosList;
 }
 
-AnimationBlend::AnimationBlend(std::vector<NodeContent> nodeList)
+AnimationBlend::AnimationBlend(std::vector<NodeContent> &nodeList)
 {
 	nodeContentList = nodeList;
 }

@@ -79,6 +79,9 @@
     <ClInclude Include="AnimationBlend.h">
       <Filter>FBX\Animation</Filter>
     </ClInclude>
+    <ClInclude Include="Skeleton.h">
+      <Filter>FBX\Animation</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\Common\AnimationUtility.cxx">
@@ -121,6 +124,7 @@
     <ClCompile Include="AnimationBlend.cpp">
       <Filter>FBX\Animation</Filter>
     </ClCompile>
+    <ClCompile Include="Skeleton.cpp" />
   </ItemGroup>
   <ItemGroup>
     <FxCompile Include="SimpleShader.fx">

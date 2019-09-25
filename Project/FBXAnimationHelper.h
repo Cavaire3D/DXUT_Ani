@@ -50,6 +50,7 @@ struct NodeStackTransforms
 			NodeTransform trans;
 			trans.scales = XMVectorLerp(nodeTransforms[startIdx].scales, nodeTransforms[endIdx].scales, lerpPercent);
 			trans.quaternion = XMQuaternionSlerp(nodeTransforms[startIdx].quaternion, nodeTransforms[endIdx].quaternion, lerpPercent);
+			trans.quaternion = DirectX::XMQuaternionNormalize(trans.quaternion);
 			trans.translation = XMVectorLerp(nodeTransforms[startIdx].translation, nodeTransforms[endIdx].translation, lerpPercent);
 			
 			return trans;
@@ -119,16 +120,24 @@ class FBXAnimationHelper
 {
 public:
 
-	static NodeStackTransforms GetNodeAnimationTransform(FbxAnimStack *pStack, FbxNode *pNode)
+	static NodeStackTransforms GetNodeAnimationTransform(FbxAnimStack *pStack, NodeContent &nodeContent)
 	{
 		NodeStackTransforms nodeAnimatinforms;
+		FbxNode *pNode = FBXHelper::GetNodeByName(nodeContent.name.c_str(), true);
+		// 如果找不到节点，就直接取骨骼点位置
+		if (!pNode) 
+		{
+			nodeAnimatinforms.nodeTransforms.push_back(NodeTransform(DirectX::XMMatrixIdentity()));
+			nodeAnimatinforms.keyTimes.push_back(0);
+			return nodeAnimatinforms;
+		}
 		FbxTimeSpan timeSpan = pStack->GetLocalTimeSpan();
 		FbxTime start = timeSpan.GetStart();
 		FbxTime timeI = timeSpan.GetStart();
 		FbxTime end = timeSpan.GetStop();
 		FbxTime durationTime;
 		durationTime.SetSecondDouble(1.0 / 30.0);
-		for (;timeI < end; timeI+=durationTime)
+		for (; timeI < end; timeI += durationTime)
 		{
 			FbxAMatrix fbxMatrix = pNode->EvaluateLocalTransform(timeI);
 			DirectX::XMMATRIX dxMatrix = FBXHelper::ToXm(fbxMatrix);
@@ -143,9 +152,10 @@ public:
 	static AllNodesData GetAllNodesData(FbxAnimStack *pStack, std::vector<NodeContent> *pNodeContentList)
 	{
 		AllNodesData allNodesData;
+		FbxNode* pRoot = FBXHelper::GetPRootNode();
 		for (auto it = pNodeContentList->begin(); it != pNodeContentList->end(); it++)
 		{
-			NodeStackTransforms animTrans = GetNodeAnimationTransform(pStack, it->pNode);
+			NodeStackTransforms animTrans = GetNodeAnimationTransform(pStack,  *it);
 			allNodesData.push_back(animTrans);
 		}
 		return allNodesData;

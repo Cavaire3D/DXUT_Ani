@@ -10,11 +10,29 @@ struct NodeTransform
 	DirectX::XMVECTOR translation;
 	DirectX::XMMATRIX ToMatrix()
 	{
+		if(DirectX::XMQuaternionIsNaN(quaternion) || DirectX::XMQuaternionIsInfinite(quaternion))
+		{
+			quaternion.m128_f32[0] = 0;
+			quaternion.m128_f32[1] = 0;
+			quaternion.m128_f32[2] = 0;
+			quaternion.m128_f32[3] = 1.0f;
+		}
+		else 
+		{
+			quaternion = DirectX::XMQuaternionNormalize(quaternion);
+		}
+		
 		DirectX::XMMATRIX sM = DirectX::XMMatrixScalingFromVector(scales);
 		DirectX::XMMATRIX rM = DirectX::XMMatrixRotationQuaternion(quaternion);
 		DirectX::XMMATRIX tM = DirectX::XMMatrixTranslationFromVector(translation);
 		return sM*rM*tM;
 	}
+	NodeTransform() = default;
+	NodeTransform(DirectX::XMMATRIX &m)
+	{
+		XMMatrixDecompose(&scales, &quaternion, &translation, m);
+	}
+
 
 	NodeTransform operator*(float value)
 	{
@@ -40,6 +58,7 @@ struct NodeTransform
 		nodeTrans.scales = DirectX::XMVectorAdd(scales, another.scales);
 		nodeTrans.quaternion = DirectX::XMVectorAdd(quaternion, another.quaternion);
 		nodeTrans.translation = DirectX::XMVectorAdd(translation, another.translation);
+		nodeTrans.quaternion = DirectX::XMQuaternionNormalize(nodeTrans.quaternion);
 		return nodeTrans;
 	}
 
@@ -50,5 +69,5 @@ struct NodeContent
 	int parentIdx;
 	int index;
 	NodeTransform transform;
-	FbxNode* pNode;
+	std::string name;
 };

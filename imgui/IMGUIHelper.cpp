@@ -71,7 +71,7 @@ void IMGUIHelper::ImGUIUpdate()
 			ImGui::SliderFloat("cameraPos:x", &(data->cameraPos[0]), -data->cameraCirecle, data->cameraCirecle);
 			ImGui::SliderFloat("cameraPos:y", &(data->cameraPos[1]), -data->cameraCirecle, data->cameraCirecle);
 			ImGui::SliderFloat("cameraPos:z", &(data->cameraPos[2]), -data->cameraCirecle, data->cameraCirecle);
-			ImGui::SliderFloat("blendPercent", &(data->blendPercent), 0, 1);
+			ImGui::SliderFloat("blendPercent", &(data->blendPercent), 0.0f, 1.0f);
 		}
 		//if (show_another_window)
 		//{

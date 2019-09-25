@@ -28,11 +28,11 @@ class AnimationBlend
 {
 public:
 	void AddBlendUnit(BlendUnit &blendUnit);
-	std::vector<SimpleVertex> *EvaluateNodePos(float time);
+	std::vector<SimpleVertex> &EvaluateNodePos(float time);
 	//用来找父亲节点
 	std::vector<NodeContent> nodeContentList;
 	std::vector<BlendUnit> blendUnits;
-	AnimationBlend(std::vector<NodeContent> nodeList);
+	AnimationBlend(std::vector<NodeContent> &nodeList);
 private:
 	std::vector<SimpleVertex> resultPosList;
 	std::vector<NodeTransform> resultNodeTrans;

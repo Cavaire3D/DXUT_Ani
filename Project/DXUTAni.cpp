@@ -15,6 +15,7 @@
 #include "../imgui/IMGUIHelper.h"
 #include "Animation.h"
 #include "AnimationBlend.h"
+#include "Skeleton.h"
 #define FBXSDK_ENV_WINSTORE
 #pragma warning( disable : 4100 )
 
@@ -35,6 +36,7 @@ ID3D11Buffer*               g_pCBChangesEveryFrame = nullptr;
 Animation *pRunAnimaiton = nullptr;
 Animation *pWalkAnimation = nullptr;
 AnimationBlend *pAnimationBlend = nullptr;
+Skeleton *pSkeleton = nullptr;
 
 struct CBChangesEveryFrame
 {
@@ -67,16 +69,16 @@ bool CALLBACK ModifyDeviceSettings( DXUTDeviceSettings* pDeviceSettings, void* p
     return true;
 }
 
-void CreateVertexBuffer(SimpleVertex* pVertexs, ID3D11Device *pd3dDevice)
+void CreateVertexBuffer(std::vector<SimpleVertex> &vertexs, ID3D11Device *pd3dDevice)
 {
 	D3D11_BUFFER_DESC bd = {};
 	bd.Usage = D3D11_USAGE_DEFAULT;
-	bd.ByteWidth = sizeof(SimpleVertex) * pRunAnimaiton->boneCnt * 2;
+	bd.ByteWidth = sizeof(SimpleVertex) * vertexs.size();
 	bd.BindFlags = D3D11_BIND_VERTEX_BUFFER;
 	bd.CPUAccessFlags = 0;
 
 	D3D11_SUBRESOURCE_DATA initData = {};
-	initData.pSysMem = pVertexs;
+	initData.pSysMem = vertexs.data();
 	if (pd3dDevice->CreateBuffer(&bd, &initData, &g_pVertexBuffer))
 	{
 		FBXHelper::Log("jbx: CreateBufferError");
@@ -106,11 +108,12 @@ HRESULT CALLBACK OnD3D11CreateDevice( ID3D11Device* pd3dDevice, const DXGI_SURFA
                                       void* pUserContext )
 {
 	IMGUIHelper::ImGUIInit();
-	pRunAnimaiton = new Animation();
+	pSkeleton = new Skeleton(std::string("Ami.fbx"));
+	pRunAnimaiton = new Animation(pSkeleton);
 	pRunAnimaiton->Init(std::string("Ami@run.fbx"));
-	pWalkAnimation = new Animation();
+	pWalkAnimation = new Animation(pSkeleton);
 	pWalkAnimation->Init(std::string("Ami@walk.fbx"));
-	pAnimationBlend = new AnimationBlend(pRunAnimaiton->nodeContentList);
+	pAnimationBlend = new AnimationBlend(pSkeleton->GetNodeList());
 	BlendUnit walkBlendUnit;
 	walkBlendUnit.InitBlendUnit(pWalkAnimation, std::string("Take 001"));
 	pAnimationBlend->AddBlendUnit(walkBlendUnit);
@@ -180,7 +183,6 @@ HRESULT CALLBACK OnD3D11ResizedSwapChain( ID3D11Device* pd3dDevice, IDXGISwapCha
 //--------------------------------------------------------------------------------------
 void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext )
 {
-	//pRunAnimaiton->EvalAllNodePos(std::string("Take 001"), GetRunningTime());
 	IMGUIHelper::ImGUIUpdate();
 	g_World = XMMatrixIdentity();
 	ImGUIData *pData = IMGUIHelper::GetData();
@@ -189,8 +191,9 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 	XMVECTORF32 up = { 0.0f, 1.0f, 0.0f };
 	g_View = XMMatrixLookAtLH(eye, at, up);
 
-	pAnimationBlend->blendUnits[0].blendValue = pData->blendPercent;
-	pAnimationBlend->blendUnits[1].blendValue = 1.0f - pData->blendPercent;
+	pAnimationBlend->blendUnits[0].blendValue = 1.0f - pData->blendPercent;
+	pAnimationBlend->blendUnits[1].blendValue = pData->blendPercent;
+	//pWalkAnimation->EvalAllNodePos(std::string("Take 001"), GetRunningTime());
 }
 
 //--------------------------------------------------------------------------------------
@@ -199,8 +202,9 @@ void CALLBACK OnFrameMove( double fTime, float fElapsedTime, void* pUserContext 
 void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext* pd3dImmediateContext,
                                   double fTime, float fElapsedTime, void* pUserContext )
 {
-	CreateVertexBuffer(pAnimationBlend->EvaluateNodePos(GetRunningTime())->data() , pd3dDevice);
-
+	CreateVertexBuffer(pAnimationBlend->EvaluateNodePos(GetRunningTime()) , pd3dDevice);
+	//CreateVertexBuffer(pWalkAnimation->realTimeVertextList, pd3dDevice);
+	//CreateVertexBuffer(FBXHelper::GetNodePosList(pSkeleton->GetNodeList()), pd3dDevice);
     // Clear render target and the depth stencil 
     auto pRTV = DXUTGetD3D11RenderTargetView();
     pd3dImmediateContext->ClearRenderTargetView( pRTV, Colors::MidnightBlue );
@@ -223,7 +227,7 @@ void CALLBACK OnD3D11FrameRender( ID3D11Device* pd3dDevice, ID3D11DeviceContext*
 	pd3dImmediateContext->VSSetConstantBuffers(0, 1, &g_pCBChangesEveryFrame);
 	pd3dImmediateContext->PSSetShader(g_pPixelShader, nullptr, 0);
 	pd3dImmediateContext->PSSetConstantBuffers(0, 1, &g_pCBChangesEveryFrame);
-	pd3dImmediateContext->Draw(pRunAnimaiton->boneCnt*2, 0);
+	pd3dImmediateContext->Draw(pSkeleton->getBoneCnt()*2, 0);
 	IMGUIHelper::ImGUIDraw();
 }
 

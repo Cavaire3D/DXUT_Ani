@@ -4,13 +4,14 @@
 #include <vector>
 #include "FBXAnimationHelper.h"
 #include "DXUTAni.h"
+#include "Skeleton.h"
 
 class Animation
 {
 public: 
 	std::string fbxName;
 	bool Init(std::string &fbxName);
-	Animation();
+	Animation(Skeleton *pSkeleton);
 	std::vector<SimpleVertex>* EvalAllNodePos(std::string &stackName, float time);
 	std::vector<DirectX::XMMATRIX> outMatrix;
 	std::vector<NodeContent> nodeContentList;
@@ -18,10 +19,8 @@ public:
 	AllNodesData *GetStackAllNodesData(std::string &stackName);
 	int boneCnt;
 	NodeAnimationStacksData stacksData;
+	Skeleton *pSkeleton;
 private:
-	void ReadNode(FbxNode *parentNode);
-	
-	
-	
+	void ReadAnimationNode(FbxNode *parentNode);
 	
 };

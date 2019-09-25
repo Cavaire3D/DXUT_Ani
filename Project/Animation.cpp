@@ -5,9 +5,11 @@
 #include <DirectXMathMatrix.inl>
 #include <DirectXMathVector.inl>
 
-Animation::Animation()
+Animation::Animation(Skeleton *pSkeleton)
 {
-
+	this->pSkeleton = pSkeleton;
+	std::vector<NodeContent>& nodeList = pSkeleton->GetNodeList();
+	this->nodeContentList.insert(nodeContentList.begin(), nodeList.begin(), nodeList.end());
 }
 
 bool Animation::Init(std::string &fbxName)
@@ -23,7 +25,7 @@ bool Animation::Init(std::string &fbxName)
 		MessageBox(0, L"LoadFbxError", L"Error", MB_ICONEXCLAMATION);
 		return false;
 	}
-	ReadNode(lRootNode);
+	ReadAnimationNode(lRootNode);
 	std::vector<FbxNode*> pNodeList;
 	for (int i =0; i < lRootNode->GetChildCount(); i++)
 	{
@@ -31,7 +33,7 @@ bool Animation::Init(std::string &fbxName)
 	}
 	for (auto pNode : pNodeList)
 	{
-		pNode->Destroy(true);
+		pNode->Destroy();
 	}
 	pNodeList.clear();
 	boneCnt = nodeContentList.size();
@@ -87,12 +89,7 @@ AllNodesData * Animation::GetStackAllNodesData(std::string & stackName)
 	return nullptr;
 }
 
-void Animation::ReadNode(FbxNode * parentNode)
+void Animation::ReadAnimationNode(FbxNode * parentNode)
 {
-	FBXHelper::GetNodeSkeletonNodeTransList(parentNode, &nodeContentList, -1, true);
 	FBXAnimationHelper::GetNodeStacksData(&nodeContentList, stacksData);
-	for (auto it = nodeContentList.begin(); it != nodeContentList.end(); it++)
-	{
-		it->pNode = nullptr;
-	}
 }

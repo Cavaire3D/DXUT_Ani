@@ -10,6 +10,7 @@
 #include <DirectXMath.h>
 #include "NodeTransform.h"
 #include <list>
+#include "DXUTAni.h"
 
 
 #define FormatLog(formatStr, args) \
@@ -36,6 +37,16 @@ public:
 	static FbxScene* GetScene()
 	{
 		return fbxScene;
+	}
+
+	static FbxNode* GetPRootNode()
+	{
+		return fbxScene->GetRootNode();
+	}
+
+	static FbxNode* GetNodeByName(const char * nodeName,bool recursive = false, bool init = false)
+	{
+		return fbxScene->GetRootNode()->FindChild(nodeName, recursive, init);
 	}
 
 	static void Log(const char * logMsg)
@@ -85,7 +96,7 @@ public:
 	}
 
 	static NodeTransform GetLocalTransform(FbxNode* fbxNode)
-		{
+	{
 			FbxAMatrix fbxM = fbxNode->EvaluateLocalTransform();
 			DirectX::XMMATRIX lM = ToXm(fbxM);
 			NodeTransform nodeT;
@@ -100,9 +111,9 @@ public:
 		if (!isRoot && nodeAttr->GetAttributeType() == FbxNodeAttribute::eSkeleton)
 		{
 			NodeContent content;
+			content.name = fbxNode->GetName();
 			content.parentIdx = parentIdx;
 			content.index = g_pNodeContentList->size();
-			content.pNode = fbxNode;
 			content.transform = GetLocalTransform(fbxNode);
 			g_pNodeContentList->push_back(content);
 			idx = content.index;
@@ -114,5 +125,39 @@ public:
 			const char* nodeName = childNode->GetName();
 			GetNodeSkeletonNodeTransList(childNode, g_pNodeContentList, idx);
 		}
+	}
+
+	static void SetVertexPos(DirectX::XMMATRIX &matrix, SimpleVertex &simpeVertex)
+	{
+		simpeVertex.Pos = { DirectX::XMVectorGetX(matrix.r[3]),
+			DirectX::XMVectorGetY(matrix.r[3]),
+			DirectX::XMVectorGetZ(matrix.r[3]) };
+	}
+
+	static std::vector<SimpleVertex> GetNodePosList(std::vector<NodeContent> &nodeList)
+	{
+		int boneCnt = nodeList.size();
+		std::vector<DirectX::XMMATRIX> worldMatrixs(boneCnt);
+		std::vector<SimpleVertex> posList(boneCnt * 2);
+		for (auto &boneContent : nodeList)
+		{
+			DirectX::XMMATRIX localM, worldM;
+			localM = boneContent.transform.ToMatrix();
+			if (boneContent.parentIdx >= 0)
+			{
+				worldM = localM*worldMatrixs[boneContent.parentIdx];
+				SetVertexPos(worldMatrixs[boneContent.parentIdx], posList[boneContent.index * 2 ]);
+				SetVertexPos(worldM, posList[boneContent.index * 2 + 1] );
+			}
+			else
+			{
+				worldM = localM;
+				SetVertexPos(DirectX::XMMatrixIdentity(), posList[boneContent.index * 2]);
+				SetVertexPos(worldM, posList[boneContent.index * 2 + 1]);
+			}
+			worldMatrixs[boneContent.index] = worldM;
+		}
+
+		return posList;
 	}
 };
