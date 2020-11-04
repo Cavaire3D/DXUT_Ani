@@ -54,10 +54,23 @@ struct NodeTransform
 
 	NodeTransform operator+(NodeTransform another)
 	{
+		
 		NodeTransform nodeTrans;
+		nodeTrans.quaternion = DirectX::XMQuaternionNormalize(nodeTrans.quaternion);
 		nodeTrans.scales = DirectX::XMVectorAdd(scales, another.scales);
-		nodeTrans.quaternion = DirectX::XMVectorAdd(quaternion, another.quaternion);
+		
 		nodeTrans.translation = DirectX::XMVectorAdd(translation, another.translation);
+		DirectX::XMVECTOR dotResult = DirectX::XMVector4Dot(quaternion, another.quaternion);
+		float dot = DirectX::XMVectorGetX(dotResult);
+
+		if (dot >= 0)
+		{
+			nodeTrans.quaternion = DirectX::XMVectorAdd(quaternion, another.quaternion); 
+		}
+		else
+		{
+			nodeTrans.quaternion = DirectX::XMVectorSubtract(quaternion, another.quaternion);
+		}
 		nodeTrans.quaternion = DirectX::XMQuaternionNormalize(nodeTrans.quaternion);
 		return nodeTrans;
 	}
